@@ -1575,7 +1575,7 @@ const modes = {
           body: JSON.stringify({
             task: 'image',
             prompt: fullPrompt,
-            imageModel: 'imagen-4.0-fast-generate-001',
+            imageModel: 'gemini-3-pro-image-preview',
             aspectRatio
           })
         });
@@ -1597,9 +1597,10 @@ const modes = {
 
         const result = JSON.parse(responseBody);
         if (result.bytesBase64Encoded) {
-            const imageUrl = `data:image/png;base64,${result.bytesBase64Encoded}`;
+            const mimeType = result.mimeType || 'image/png';
+            const imageUrl = `data:${mimeType};base64,${result.bytesBase64Encoded}`;
             const blob = await fetch(imageUrl).then(res => res.blob());
-            const file = new File([blob], "generated_image.png", { type: "image/png" });
+            const file = new File([blob], "generated_image.png", { type: mimeType });
             setAsSourceImage(file);
         } else {
             console.error("Unexpected success response:", result);
