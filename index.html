@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image-to-Vector Converter</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/ezdxf/dist/ezdxf.min.js"></script>
+
+    <script src="https://unpkg.com/imagetracerjs@1.2.6/imagetracer_v1.2.6.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Alfa+Slab+One&family=Oswald&family=Roboto+Mono&family=Source+Code+Pro&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+
+    <style>
+        /* Base body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Style for control group sections */
+        .control-group { border-left: 3px solid #3b82f6; }
+        
+        /* Loader animation */
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom range slider styles */
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #d1d5db;
+            border-radius: 5px; outline: none; opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #3b82f6;
+            cursor: pointer; border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px; height: 20px; background: #3b82f6;
+            cursor: pointer; border-radius: 50%;
+        }
+
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
+
+        /* Icon button styles */
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 9999px;
+            color: #6b7280;
+        }
+        .icon-btn:hover {
+            color: #1f2937;
+            background-color: #e5e7eb;
+        }
+
+        /* Fullscreen modal styles */
+        #fullscreenModal {
+            background-color: rgba(0,0,0,0.85);
+        }
+        #fullscreenSvgContainer {
+            cursor: grab;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #fullscreenSvgContainer.panning {
+            cursor: grabbing;
+        }
+        #fullscreenSvgContainer > svg {
+            max-width: 95%;
+            max-height: 95%;
+            transition: transform 0.1s ease-out;
+        }
+    </style>
+
+<style id="vp-enhance-css">
+:root{--vp-bg:#0b1020;--vp-card:#121937;--vp-line:#32436d;--vp-text:#e9eeff;--vp-muted:#a4b4df;--vp-accent:#6ea8ff;}
+body.vp-dark{background:radial-gradient(1200px 650px at 0% 0%,#1a2f73 0%,transparent 60%),radial-gradient(900px 500px at 100% 0%,#4c2579 0%,transparent 55%),var(--vp-bg)!important;color:var(--vp-text)!important;}
+body.vp-dark .bg-white{background:color-mix(in srgb, var(--vp-card) 92%, #000 8%)!important;color:var(--vp-text)!important;border:1px solid var(--vp-line)!important;}
+body.vp-dark .text-gray-900,body.vp-dark .text-gray-800{color:var(--vp-text)!important;}
+body.vp-dark .text-gray-700,body.vp-dark .text-gray-600,body.vp-dark .text-gray-500{color:var(--vp-muted)!important;}
+#vpToolbar{position:sticky;top:10px;z-index:40;display:flex;gap:8px;flex-wrap:wrap;margin:0 auto 12px;max-width:1200px;padding:10px 12px;border-radius:14px;background:rgba(14,22,46,.72);backdrop-filter:blur(12px);border:1px solid #3a4c79;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+#vpToolbar button{border:1px solid #46639f;background:#1e3a8a;color:#fff;border-radius:10px;padding:8px 10px;font-weight:600;font-size:.85rem}
+#vpToolbar button.alt{background:#334155;border-color:#54657f}
+#vpToast{position:fixed;bottom:16px;right:16px;background:#0f172a;color:#fff;border:1px solid #334155;padding:10px 12px;border-radius:12px;z-index:60;display:none}
+</style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<div id="vpToolbar">
+  <button id="vpThemeToggle">🌙 Theme</button>
+  <button id="vpSavePreset">💾 Save Preset</button>
+  <button id="vpLoadPreset" class="alt">📂 Load Preset</button>
+  <button id="vpExportPreset" class="alt">⬇️ Export Preset JSON</button>
+  <button id="vpImportPreset" class="alt">⬆️ Import Preset JSON</button>
+  <input id="vpPresetFile" type="file" accept="application/json" style="display:none">
+</div>
+<div id="vpToast"></div>
+
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900">Vector Pro</h1>
+            <p class="text-lg text-gray-600 mt-2">A robust tool for CNC, laser cutting, and engraving.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-bold mb-6 border-b pb-4">Controls</h2>
+
+                <div id="errorDisplay" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+                </div>
+
+                <div class="mb-6 control-group pl-4 py-2">
+                     <label class="block text-lg font-medium mb-2">1. Image Source</label>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-2">
+                             <label for="imageUpload" class="text-center text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-3 cursor-pointer">Upload File</label>
+                             <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                             <label for="cameraUpload" class="text-center text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-3 cursor-pointer">Take Photo</label>
+                             <input type="file" id="cameraUpload" accept="image/*" capture="environment" class="hidden">
+                        </div>
+
+                         <div id="uploadPreviewContainer" class="hidden text-center">
+                             <img id="uploadPreview" class="max-w-full h-auto rounded-lg shadow-md mx-auto mb-4 border" alt="Image upload preview">
+                             <div class="flex space-x-2">
+                                 <button id="useOriginalBtn" class="w-1/2 bg-green-600 text-white font-semibold py-2 px-3 rounded-lg text-sm">Use Original</button>
+                                 <button id="generateAiFromUploadBtn" class="w-1/2 bg-purple-600 text-white font-semibold py-2 px-3 rounded-lg text-sm">Generate AI Version</button>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+
+                <div class="mb-6 control-group pl-4 py-2">
+                     <label class="block text-lg font-medium mb-2">2. Or Generate from Text</label>
+                     <div class="space-y-4">
+                         <div class="relative">
+                             <textarea id="textPrompt" class="w-full p-2 pr-20 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition resize-none" rows="3" placeholder="e.g., A detailed vintage car..."></textarea>
+                             <div class="absolute top-2 right-2 flex flex-col space-y-1">
+                                 <button id="aiCompleteBtn" class="icon-btn" title="Auto-complete prompt with AI"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg></button>
+                                 <button id="copyPromptBtn" class="icon-btn" title="Copy Prompt"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg></button>
+                                 <button id="clearPromptBtn" class="icon-btn" title="Clear Prompt"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                             </div>
+                         </div>
+                          <div>
+                              <label class="block text-sm font-medium text-gray-700">Generation Controls</label>
+                              <div class="mt-1 space-y-2">
+                                  <select id="detailLevel" class="w-full p-2 text-sm border-gray-300 rounded-md">
+                                      <option value="simple, with minimal lines">Low Detail</option>
+                                      <option value="moderately detailed">Medium Detail</option>
+                                      <option value="highly detailed" selected>High Detail</option>
+                                      <option value="intricate and photorealistic">Intricate Detail</option>
+                                      <option value="high contrast, two-color, pure black and white, stark, like a black marker on white paper">High Contrast (2-Color)</option>
+                                  </select>
+                                  <select id="shadingStyle" class="w-full p-2 text-sm border-gray-300 rounded-md"><option value="pure black and white, high contrast">Pure B&W</option><option value="subtle grayscale shading, soft gradients" selected>Subtle Grayscale</option></select>
+                                  <select id="generationStyle" class="w-full p-2 text-sm border-gray-300 rounded-md">
+                                      <option value="default">Default (No Style)</option>
+                                      <option value="hedcut">Hedcut / Engraved</option>
+                                      <option value="modulated-line">Modulated Line Art</option>
+                                      <option value="pen-and-ink">Pen and Ink Drawing</option>
+                                  </select>
+                                  <select id="aspectRatio" class="w-full p-2 text-sm border-gray-300 rounded-md"><option value="1:1">1:1 (Square)</option><option value="16:9" selected>16:9 (Widescreen)</option><option value="9:16">9:16 (Portrait)</option><option value="4:3">4:3 (Standard)</option></select>
+                              </div>
+                          </div>
+                         <div class="grid grid-cols-2 gap-2">
+                             <button id="randomSceneBtn" class="py-2 px-4 text-xs font-bold text-white bg-gray-600 rounded-lg shadow-md transform transition hover:bg-gray-700 active:scale-95 disabled:bg-gray-400">Random Scene</button>
+                             <button id="randomPatternBtn" class="py-2 px-4 text-xs font-bold text-white bg-gray-600 rounded-lg shadow-md transform transition hover:bg-gray-700 active:scale-95 disabled:bg-gray-400">Random Pattern</button>
+                         </div>
+                         <button id="generateImageBtn" class="w-full mt-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400">Generate Image</button>
+                         <p class="text-xs text-gray-500 italic mt-2">Gemini can make mistakes, including about people, so double-check its responses.</p>
+                     </div>
+                 </div>
+                
+                <div id="imageAdjustmentControls" class="mb-6 control-group pl-4 py-2 hidden">
+                    <label class="block text-lg font-medium mb-2">3. Image Adjustments</label>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="contrast" class="block text-sm font-medium text-gray-700">Contrast</label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input type="range" id="contrast" min="0" max="200" value="100" class="w-full">
+                                <span id="contrastValue" class="text-sm font-semibold text-blue-600 w-12 text-right">100%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="brightness" class="block text-sm font-medium text-gray-700">Brightness</label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input type="range" id="brightness" min="0" max="200" value="100" class="w-full">
+                                <span id="brightnessValue" class="text-sm font-semibold text-blue-600 w-12 text-right">100%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="unsharpAmount" class="block text-sm font-medium text-gray-700">Unsharp Amount</label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input type="range" id="unsharpAmount" min="0" max="200" value="0" class="w-full">
+                                <span id="unsharpAmountValue" class="text-sm font-semibold text-blue-600 w-12 text-right">0%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="unsharpRadius" class="block text-sm font-medium text-gray-700">Unsharp Radius</label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input type="range" id="unsharpRadius" min="0" max="10" value="1" step="0.1" class="w-full">
+                                <span id="unsharpRadiusValue" class="text-sm font-semibold text-blue-600 w-12 text-right">1.0px</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="resolutionSelect" class="block text-sm font-medium text-gray-700">Processing Resolution</label>
+                            <select id="resolutionSelect" class="w-full p-2 mt-1 text-sm border-gray-300 rounded-md">
+                                <option value="512">512px (Stable)</option>
+                                <option value="1024" selected>1024px (Recommended)</option>
+                                <option value="2048">2048px (High Quality)</option>
+                                <option value="4096">4096px (Very High - Slow)</option>
+                                <option value="8192">8192px (Extreme - Unstable)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Higher resolutions provide more detail but are much slower and may crash the browser.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="outputSizeControls" class="mb-6 control-group pl-4 py-2 hidden">
+                    <label class="block text-lg font-medium mb-2">4. Output Size (mm)</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="outputWidth" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Width">
+                        <span class="text-gray-500">×</span>
+                        <input type="number" id="outputHeight" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Height">
+                    </div>
+                </div>
+
+                <div class="mb-6 control-group pl-4 py-2">
+                    <label for="modeSelect" class="block text-lg font-medium mb-2">5. Select Mode</label>
+                    <select id="modeSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="tsp-art">TSP Art</option>
+                        <option value="vector-trace">Vector Trace</option>
+                        <option value="stippling">Stippling</option>
+                        <option value="text-art">Text Art</option>
+                        <option value="halftone">Halftone</option>
+                        <option value="error-diffusion">Error Diffusion</option>
+                        <option value="modulated-lines">Modulated Lines</option>
+                        <option value="voronoi">Voronoi Cells</option>
+                        <option value="delaunay">Delaunay Triangles</option>
+                        <option value="edge-art">Edge / Line Art</option>
+                        <option value="quadtree-art">Quadtree Art</option>
+                    </select>
+                </div>
+
+                <div class="control-group pl-4 py-2">
+                    <h3 class="text-lg font-medium mb-4">6. Adjust Parameters</h3>
+                    <div id="paramsContainer" class="space-y-4"></div>
+                </div>
+                
+                <div class="mt-8">
+                     <button id="generateBtn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition duration-300 ease-in-out disabled:bg-gray-400">
+                        Convert to Vector
+                    </button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-9 bg-white p-6 rounded-2xl shadow-lg">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 class="text-2xl font-bold">Preview & Download</h2>
+                    <button id="togglePreviewBtn" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition duration-300">
+                        Full Preview
+                    </button>
+                </div>
+                
+                 <div id="loader" class="hidden flex-col items-center justify-center h-full">
+                     <div class="loader"></div>
+                     <p id="loader-text" class="mt-4 text-gray-600">Processing, please wait...</p>
+                 </div>
+
+                 <div id="previewArea" class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                    <div id="originalCanvasContainer" class="relative">
+                        <h3 class="text-xl font-semibold mb-2 text-center">Original Image</h3>
+                        <canvas id="originalCanvas" class="w-full h-auto border-2 border-gray-200 rounded-lg"></canvas>
+                        <button id="deleteImageBtn" class="hidden absolute top-0 right-0 m-2 icon-btn bg-white bg-opacity-50 hover:bg-opacity-75" title="Delete Image">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                     <div id="svgPreviewContainer">
+                         <h3 class="text-xl font-semibold mb-2 text-center">Vector Preview</h3>
+                         <div id="svgPreview" class="w-full h-auto border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center p-4 min-h-[300px]">
+                             <p id="svgPlaceholder" class="text-gray-500">Upload or generate an image to begin.</p>
+                         </div>
+                    </div>
+                 </div>
+
+                 <div id="downloadButtons" class="mt-8 text-center hidden">
+                     <a id="downloadSVG" class="inline-block bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300 mr-4">Download SVG</a>
+                     <a id="downloadDXF" class="inline-block bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition duration-300">Download DXF</a>
+                     <button id="fullscreenBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition duration-300">Fullscreen</button>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="fullscreenModal" class="hidden fixed inset-0 z-50">
+        <div id="fullscreenSvgContainer" class="w-full h-full"></div>
+        <button id="closeFullscreenBtn" class="absolute top-4 right-4 text-white text-4xl font-bold hover:text-gray-300">&times;</button>
+    </div>
+
+<script id="mainWorkerScript" type="javascript/worker">
+    // This script runs in a separate thread to avoid freezing the UI.
+    
+    // Load D3.js library into the worker's scope
+    importScripts('https://d3js.org/d3.v7.min.js');
+
+    // --- Helper Functions within Worker ---
+    function gaussianBlur(data, width, height, radius) {
+        if (radius === 0) return data;
+        const R = Math.ceil(radius);
+        const kernel = [];
+        let total = 0;
+        for (let i = -R; i <= R; i++) {
+            const val = Math.exp(-0.5 * (i * i) / (radius * radius));
+            kernel.push(val);
+            total += val;
+        }
+        for (let i = 0; i < kernel.length; i++) kernel[i] /= total;
+
+        const blurred = new Uint8ClampedArray(data.length);
+
+        // Horizontal pass
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let r = 0, g = 0, b = 0, a = 0;
+                for (let i = -R; i <= R; i++) {
+                    const k = kernel[i + R];
+                    const px = Math.max(0, Math.min(width - 1, x + i));
+                    const idx = (y * width + px) * 4;
+                    r += data[idx] * k;
+                    g += data[idx + 1] * k;
+                    b += data[idx + 2] * k;
+                    a += data[idx + 3] * k;
+                }
+                const destIdx = (y * width + x) * 4;
+                blurred[destIdx] = r;
+                blurred[destIdx + 1] = g;
+                blurred[destIdx + 2] = b;
+                blurred[destIdx + 3] = a;
+            }
+        }
+
+        const finalBlurred = new Uint8ClampedArray(data.length);
+        // Vertical pass
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let r = 0, g = 0, b = 0, a = 0;
+                for (let i = -R; i <= R; i++) {
+                    const k = kernel[i + R];
+                    const py = Math.max(0, Math.min(height - 1, y + i));
+                    const idx = (py * width + x) * 4;
+                    r += blurred[idx] * k;
+                    g += blurred[idx + 1] * k;
+                    b += blurred[idx + 2] * k;
+                    a += blurred[idx + 3] * k;
+                }
+                const destIdx = (y * width + x) * 4;
+                finalBlurred[destIdx] = r;
+                finalBlurred[destIdx + 1] = g;
+                finalBlurred[destIdx + 2] = b;
+                finalBlurred[destIdx + 3] = a;
+            }
+        }
+        return finalBlurred;
+    }
+
+    // Main message handler for the worker
+    onmessage = function(e) {
+        const { mode, imageData, params } = e.data;
+        const { width, height } = imageData;
+        let data = imageData.data;
+
+        // Pre-processing steps common to several modes
+        if (mode === 'tsp-art') {
+             postMessage({ type: 'progress', text: 'Preprocessing: Blurring...' });
+             data = gaussianBlur(data, width, height, params.gaussianBlur);
+        }
+
+        postMessage({ type: 'progress', text: 'Preprocessing: Analyzing brightness...' });
+        const grayscaleData = new Float32Array(width * height);
+        for (let i = 0; i < width * height; i++) {
+            let gray = (data[i*4] * 0.299 + data[i*4+1] * 0.587 + data[i*4+2] * 0.114);
+            if (mode === 'tsp-art') {
+                 gray = 255 * Math.pow(gray / 255, params.contrastSensitivity);
+            }
+            grayscaleData[i] = params.invert ? gray : (255 - gray);
+        }
+
+        // Generates points based on image brightness (density)
+        function generatePoints() {
+            postMessage({ type: 'progress', text: 'Generating initial points...' });
+            
+            const cdf = new Float32Array(grayscaleData.length);
+            let totalWeight = 0;
+            for (let i = 0; i < grayscaleData.length; i++) {
+                totalWeight += grayscaleData[i];
+                cdf[i] = totalWeight;
+            }
+
+            let points = [];
+            const numPoints = params.points;
+            if(totalWeight === 0) totalWeight = 1; // Avoid division by zero
+            for (let i = 0; i < numPoints; i++) {
+                const rand = Math.random() * totalWeight;
+                // Binary search to find the pixel corresponding to the random weight
+                let low = 0, high = cdf.length - 1, ans = -1;
+                while (low <= high) {
+                    let mid = Math.floor(low + (high - low) / 2);
+                    if (cdf[mid] >= rand) { ans = mid; high = mid - 1; } 
+                    else { low = mid + 1; }
+                }
+                if(ans !== -1){
+                    const y = Math.floor(ans / width);
+                    const x = ans % width;
+                    points.push([x + Math.random(), y + Math.random()]); // Add jitter
+                }
+            }
+
+            // Lloyd's relaxation using Voronoi diagrams to even out point distribution
+            if (params.iterations > 0) {
+                 for (let i = 0; i < params.iterations; i++) {
+                     postMessage({ type: 'progress', text: `Relaxing points: Step ${i+1}` });
+                     const delaunay = d3.Delaunay.from(points);
+                     const voronoi = delaunay.voronoi([0, 0, width, height]);
+                     points = points.map((p, j) => {
+                         const cell = voronoi.cellPolygon(j);
+                         if (!cell) return p;
+                         return d3.polygonCentroid(cell);
+                     });
+                 }
+            }
+            return points;
+        }
+        
+        try {
+            let result;
+            // Generate points for all modes except error diffusion which is grid-based
+            const points = (mode === 'error-diffusion' || mode === 'quadtree-art') ? [] : generatePoints();
+
+            // Switch based on the selected mode to perform the correct algorithm
+            switch (mode) {
+                case 'stippling':
+                    result = { points };
+                    break;
+                case 'voronoi':
+                    postMessage({ type: 'progress', text: 'Generating Voronoi cells...' });
+                    const delaunayV = d3.Delaunay.from(points);
+                    const voronoi = delaunayV.voronoi([0, 0, width, height]);
+                    const filledPolygons = Array.from(voronoi.cellPolygons()).map((cell, i) => {
+                        if (!cell) return null;
+                        const seedPoint = points[i];
+                        const intensity = grayscaleData[Math.floor(seedPoint[1]) * width + Math.floor(seedPoint[0])] || 0;
+                        return { polygon: cell, isFilled: intensity > 128 };
+                    }).filter(p => p);
+                    result = { filledPolygons };
+                    break;
+                case 'delaunay':
+                     postMessage({ type: 'progress', text: 'Generating Delaunay triangles...' });
+                    const delaunayD = d3.Delaunay.from(points);
+                    const filledTriangles = [];
+                    for (let i = 0; i < delaunayD.triangles.length; i += 3) {
+                        const p1_idx = delaunayD.triangles[i], p2_idx = delaunayD.triangles[i+1], p3_idx = delaunayD.triangles[i+2];
+                        const p1 = points[p1_idx], p2 = points[p2_idx], p3 = points[p3_idx];
+                        if (p1 && p2 && p3) {
+                            const triangle = [p1, p2, p3];
+                            const centroid = d3.polygonCentroid(triangle);
+                            const intensity = grayscaleData[Math.floor(centroid[1]) * width + Math.floor(centroid[0])] || 0;
+                            filledTriangles.push({ triangle, isFilled: intensity > 128 });
+                        }
+                    }
+                    result = { filledTriangles };
+                    break;
+                case 'tsp-art':
+                    postMessage({ type: 'progress', text: 'Building initial path...' });
+                    if(points.length < 2) { result = { path: points }; break; }
+
+                    // Nearest neighbor algorithm for initial path
+                    let pathIndices = [];
+                    let unvisited = new Set(points.map((p, i) => i));
+                    let currentIdx = 0;
+                    unvisited.delete(currentIdx);
+                    pathIndices.push(currentIdx);
+                    
+                    while (unvisited.size > 0) {
+                        let nearestDist = Infinity, nearestIdx = -1;
+                        const lastPoint = points[pathIndices[pathIndices.length - 1]];
+                        for(const idx of unvisited) {
+                            const p = points[idx];
+                            const dist = (p[0] - lastPoint[0])**2 + (p[1] - lastPoint[1])**2;
+                            if (dist < nearestDist) { nearestDist = dist; nearestIdx = idx; }
+                        }
+                        currentIdx = nearestIdx;
+                        pathIndices.push(currentIdx);
+                        unvisited.delete(currentIdx);
+                    }
+                    
+                    // 2-opt refinement to improve the path
+                    if (params.refinementPasses > 0) {
+                        const numPoints = points.length;
+                        const distSq = (p1, p2) => (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2;
+                        
+                        for(let pass = 0; pass < params.refinementPasses; pass++) {
+                            let improved = false;
+                            postMessage({ type: 'progress', text: `Refining path: Pass ${pass + 1}` });
+
+                            for (let i = 0; i < numPoints - 2; i++) {
+                                for (let j = i + 2; j < numPoints - 1; j++) {
+                                    const p1_idx = pathIndices[i], p2_idx = pathIndices[i+1];
+                                    const p3_idx = pathIndices[j], p4_idx = pathIndices[j+1];
+
+                                    const currentDist = distSq(points[p1_idx], points[p2_idx]) + distSq(points[p3_idx], points[p4_idx]);
+                                    const newDist = distSq(points[p1_idx], points[p3_idx]) + distSq(points[p2_idx], points[p4_idx]);
+
+                                    if (newDist < currentDist) {
+                                        // Reverse the segment between i+1 and j
+                                        let start = i + 1, end = j;
+                                        while (start < end) {
+                                            [pathIndices[start], pathIndices[end]] = [pathIndices[end], pathIndices[start]];
+                                            start++;
+                                            end--;
+                                        }
+                                        improved = true;
+                                    }
+                                }
+                            }
+                            if(!improved) break; // No improvement in a full pass, so stop early
+                        }
+                    }
+
+                    const finalPath = pathIndices.map(i => points[i]);
+                    result = { path: finalPath };
+                    break;
+
+                case 'error-diffusion':
+                    postMessage({ type: 'progress', text: 'Applying error diffusion...' });
+                    const { threshold, diffusionAlgorithm } = params;
+                    const ditheredGrid = new Uint8ClampedArray(width * height);
+                    const errors = new Float32Array(width * height);
+                    // Kernels for various error diffusion algorithms
+                    const kernels = { fs: [[0, 1, 7/16], [1, -1, 3/16], [1, 0, 5/16], [1, 1, 1/16]], stucki: [[0, 1, 8/42], [0, 2, 4/42], [1, -2, 2/42], [1, -1, 4/42], [1, 0, 8/42], [1, 1, 4/42], [1, 2, 2/42], [2, -2, 1/42], [2, -1, 2/42], [2, 0, 4/42], [2, 1, 2/42], [2, 2, 1/42]], jjn: [[0,1,7/48],[0,2,5/48],[1,-2,3/48],[1,-1,5/48],[1,0,7/48],[1,1,5/48],[1,2,3/48],[2,-2,1/48],[2,-1,3/48],[2,0,5/48],[2,1,3/48],[2,2,1/48]], burkes: [[0,1,8/32],[0,2,4/32],[1,-2,2/32],[1,-1,4/32],[1,0,8/32],[1,1,4/32],[1,2,2/32]], sierra: [[0,1,5/32],[0,2,3/32],[1,-2,2/32],[1,-1,4/32],[1,0,5/32],[1,1,4/32],[1,2,2/32],[2, -1, 2/32],[2,0,3/32],[2,1,2/32]], sierra_lite: [[0,1,2/4],[1,-1,1/4],[1,0,1/4]], };
+                    const kernel = kernels[diffusionAlgorithm];
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            const i = y * width + x;
+                            const oldPixel = (255 - grayscaleData[i]) + errors[i];
+                            const newPixel = oldPixel < threshold ? 0 : 255;
+                            ditheredGrid[i] = params.invert ? (255 - newPixel) : newPixel;
+                            const quantError = oldPixel - newPixel;
+                            // Distribute the error to neighboring pixels
+                            for (const [ky, kx, kWeight] of kernel) {
+                                const ny = y + ky; const nx = x + kx;
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    errors[ny * width + nx] += quantError * kWeight;
+                                }
+                            }
+                        }
+                    }
+                    result = { ditheredGrid, gridWidth: width, gridHeight: height };
+                    break;
+                case 'quadtree-art':
+                    postMessage({ type: 'progress', text: 'Building Quadtree...' });
+                    const rects = [];
+                    
+                    function getRegionStats(x, y, w, h) {
+                        let sum = 0, sumSq = 0;
+                        const numPixels = w * h;
+                        for (let j = y; j < y + h; j++) {
+                            for (let i = x; i < x + w; i++) {
+                                const val = grayscaleData[j * width + i];
+                                sum += val;
+                                sumSq += val * val;
+                            }
+                        }
+                        const mean = sum / numPixels;
+                        const stdDev = Math.sqrt(sumSq / numPixels - mean * mean);
+                        return { mean, stdDev };
+                    }
+
+                    function subdivide(x, y, w, h, depth) {
+                        if (depth >= params.maxDepth) {
+                            const stats = getRegionStats(x, y, w, h);
+                            rects.push({ x, y, width: w, height: h, avgColor: stats.mean });
+                            return;
+                        }
+
+                        const stats = getRegionStats(x, y, w, h);
+                        if (stats.stdDev > params.threshold && w > params.minSize && h > params.minSize) {
+                            const hw = w / 2;
+                            const hh = h / 2;
+                            subdivide(x, y, hw, hh, depth + 1);
+                            subdivide(x + hw, y, hw, hh, depth + 1);
+                            subdivide(x, y + hh, hw, hh, depth + 1);
+                            subdivide(x + hw, y + hh, hw, hh, depth + 1);
+                        } else {
+                            rects.push({ x, y, width: w, height: h, avgColor: stats.mean });
+                        }
+                    }
+
+                    subdivide(0, 0, width, height, 0);
+                    result = { rects };
+                    break;
+            }
+             // Send the final result back to the main thread
+             postMessage({ type: 'complete', result });
+        } catch(e) {
+            // Send any errors back to the main thread
+            postMessage({ type: 'error', message: e.message + "\n" + e.stack });
+        }
+    };
+</script>
+
+<script type="module">
+// --- Global variables and DOM element references --- 
+const imageUpload = document.getElementById('imageUpload'); 
+const cameraUpload = document.getElementById('cameraUpload'); 
+const uploadPreviewContainer = document.getElementById('uploadPreviewContainer'); 
+const uploadPreview = document.getElementById('uploadPreview'); 
+const useOriginalBtn = document.getElementById('useOriginalBtn'); 
+const generateAiFromUploadBtn = document.getElementById('generateAiFromUploadBtn'); 
+const generateImageBtn = document.getElementById('generateImageBtn'); 
+const randomSceneBtn = document.getElementById('randomSceneBtn'); 
+const randomPatternBtn = document.getElementById('randomPatternBtn'); 
+const aiCompleteBtn = document.getElementById('aiCompleteBtn'); 
+const textPrompt = document.getElementById('textPrompt'); 
+const copyPromptBtn = document.getElementById('copyPromptBtn'); 
+const clearPromptBtn = document.getElementById('clearPromptBtn'); 
+const deleteImageBtn = document.getElementById('deleteImageBtn'); 
+const modeSelect = document.getElementById('modeSelect'); 
+const paramsContainer = document.getElementById('paramsContainer'); 
+const generateBtn = document.getElementById('generateBtn'); 
+const originalCanvas = document.getElementById('originalCanvas'); 
+const originalCanvasContainer = document.getElementById('originalCanvasContainer'); 
+const svgPreviewContainer = document.getElementById('svgPreviewContainer'); 
+const svgPreview = document.getElementById('svgPreview'); 
+const downloadButtons = document.getElementById('downloadButtons'); 
+const downloadSVG = document.getElementById('downloadSVG'); 
+const downloadDXF = document.getElementById('downloadDXF'); 
+const loader = document.getElementById('loader'); 
+const loaderText = document.getElementById('loader-text'); 
+const previewArea = document.getElementById('previewArea'); 
+const outputWidthInput = document.getElementById('outputWidth'); 
+const outputHeightInput = document.getElementById('outputHeight'); 
+const contrastSlider = document.getElementById('contrast'); 
+const brightnessSlider = document.getElementById('brightness'); 
+const unsharpAmountSlider = document.getElementById('unsharpAmount');
+const unsharpRadiusSlider = document.getElementById('unsharpRadius');
+const resolutionSelect = document.getElementById('resolutionSelect');
+const togglePreviewBtn = document.getElementById('togglePreviewBtn'); 
+const errorDisplay = document.getElementById('errorDisplay'); 
+const fullscreenModal = document.getElementById('fullscreenModal');
+const fullscreenSvgContainer = document.getElementById('fullscreenSvgContainer');
+const closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+let originalImageData = null; 
+let currentImageObject = null; // Store the image object for the main canvas 
+let uploadedImageFile = null; // Store the raw uploaded file 
+let imageAspectRatio = 1; 
+let lastGeneratedSVGContent = ''; 
+let currentWorker = null; 
+
+// --- Mode Parameter Definitions --- 
+// This object defines the UI controls for each conversion mode.
+const modes = { 
+     'tsp-art': [ 
+         { name: 'Number of Points', id: 'points', type: 'range', min: 1000, max: 250000, value: 10000, step: 100, unit:'' }, 
+         { name: 'Gaussian Blur', id: 'gaussianBlur', type: 'range', min: 0, max: 5, value: 0.5, step: 0.1, unit:'px' }, 
+         { name: 'Contrast Sensitivity', id: 'contrastSensitivity', type: 'range', min: 0.1, max: 10, value: 1.5, step: 0.1, unit:'' }, 
+         { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 10, value: 1, unit:'' }, 
+         { name: 'Path Refinement Passes', id: 'refinementPasses', type: 'range', min: 0, max: 20, value: 3, step: 1, unit: ' passes' }, 
+         { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.15, step: 0.01 }, 
+         { name: 'Invert', id: 'invert', type: 'checkbox' } 
+     ], 
+     'vector-trace': [ 
+         { name: 'Render Mode', id: 'renderMode', type: 'select', options: ['fill', 'outline'] }, 
+         { name: 'Line Threshold', id: 'ltres', type: 'range', min: 0.1, max: 10, value: 1, step: 0.1, unit:'' }, 
+         { name: 'Curve Threshold', id: 'qtres', type: 'range', min: 0.1, max: 10, value: 1, step: 0.1, unit:'' }, 
+         { name: 'Path Simplification', id: 'pathomit', type: 'range', min: 0, max: 100, value: 8, step: 1, unit:'' }, 
+         { name: 'Stroke Width (mm)', id: 'strokewidth', type: 'range', min: 0.1, max: 10, value: 1, step: 0.1 }, 
+         { name: 'Round Coords', id: 'roundcoords', type: 'range', min: 0, max: 5, value: 1, step: 1, unit:'' }, 
+         { name: 'Invert Colors', id: 'invert', type: 'checkbox' } 
+     ], 
+     'color-vector-trace': [ 
+         { name: 'Number of Colors', id: 'numberofcolors', type: 'range', min: 2, max: 64, value: 16, step: 1, unit:'' }, 
+         { name: 'Line Threshold', id: 'ltres', type: 'range', min: 0.1, max: 10, value: 1, step: 0.1, unit:'' }, 
+         { name: 'Curve Threshold', id: 'qtres', type: 'range', min: 0.1, max: 10, value: 1, step: 0.1, unit:'' }, 
+         { name: 'Path Simplification', id: 'pathomit', type: 'range', min: 0, max: 100, value: 8, step: 1, unit:'' }, 
+         { name: 'Round Coords', id: 'roundcoords', type: 'range', min: 0, max: 5, value: 1, step: 1, unit:'' }, 
+     ], 
+     stippling: [ 
+         { name: 'Number of Points', id: 'points', type: 'range', min: 500, max: 100000, value: 10000, step: 100, unit:'' }, 
+         { name: 'Min Dot Size (mm)', id: 'minDotSize', type: 'range', min: 0.05, max: 5, value: 0.1, step: 0.05 }, 
+         { name: 'Max Dot Size (mm)', id: 'maxDotSize', type: 'range', min: 0.05, max: 5, value: 0.5, step: 0.05 }, 
+         { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 10, value: 1, unit:'' }, 
+         { name: 'Invert', id: 'invert', type: 'checkbox' } 
+     ], 
+     'text-art': [ 
+         { name: 'Text String', id: 'textString', type: 'textarea', value: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' }, 
+         { name: 'Font Family', id: 'fontFamily', type: 'select', options: ['Anton', 'Oswald', 'Alfa Slab One', 'monospace', 'Roboto Mono', 'Source Code Pro', 'VT323', 'serif', 'sans-serif'] }, 
+         { name: 'Shading Levels', id: 'shadingLevels', type: 'range', min: 2, max: 24, value: 2, step: 1, unit: ' levels' }, 
+         { name: 'Character Height (mm)', id: 'charHeight', type: 'range', min: 1, max: 20, value: 4, step: 0.5 }, 
+         { name: 'Max Strikethrough Lines', id: 'maxLines', type: 'range', min: 0, max: 10, value: 5, step: 1, unit: '' }, 
+         { name: 'Strikethrough Thickness (mm)', id: 'lineThickness', type: 'range', min: 0.05, max: 5, value: 0.2, step: 0.05 }, 
+         { name: 'Invert', id: 'invert', type: 'checkbox' },
+         { name: 'Skip Every Other Row', id: 'skipRow', type: 'checkbox' }
+     ], 
+     halftone: [ 
+         { name: 'Grid Type', id: 'gridType', type: 'select', options: ['square', 'hexagonal', 'stochastic'] }, 
+         { name: 'Grid Spacing (mm)', id: 'spacing', type: 'range', min: 0.5, max: 10, value: 2, step: 0.1 }, 
+         { name: 'Min Dot Size (mm)', id: 'minDotSize', type: 'range', min: 0, max: 5, value: 0.1, step: 0.1 }, 
+         { name: 'Max Dot Size (mm)', id: 'maxDotSize', type: 'range', min: 0.1, max: 10, value: 2, step: 0.1 }, 
+         { name: 'Style', id: 'holeStyle', type: 'select', options: ['filled', 'outline'] }, 
+         { name: 'Screen Angle', id: 'screenAngle', type: 'range', min: 0, max: 90, value: 45, unit: '°' }, 
+         { name: 'Dot Shape', id: 'shape', type: 'select', options: ['circle', 'square', 'diamond', 'line'] }, 
+         { name: 'Invert', id: 'invert', type: 'checkbox' },
+         { name: 'Skip Every Other Row', id: 'skipRow', type: 'checkbox' }
+     ], 
+     "error-diffusion": [ 
+         { name: 'Threshold (0–255)', id: 'threshold', type: 'range', min: 0, max: 255, value: 128, unit:'' }, 
+         { name: 'Diffusion Algorithm', id: 'diffusionAlgorithm', type: 'select', options: ['fs', 'stucki', 'jjn', 'burkes', 'sierra', 'sierra_lite'] }, 
+         { name: 'Shape Size (mm)', id: 'shapeSize', type: 'range', min: 0.25, max: 10, value: 1, step: 0.25 }, 
+         { name: 'Shape', id: 'errorShape', type: 'select', options: ['square', 'diamond', 'circle'] }, 
+         { name: 'Invert', id: 'invert', type: 'checkbox' },
+         { name: 'Skip Every Other Row', id: 'skipRow', type: 'checkbox' }
+     ], 
+     "modulated-lines": [ 
+         { name: 'Path Type', id: 'pathType', type: 'select', options: ['linear', 'spiral', 'circles'] }, 
+         { name: 'Modulation Type', id: 'modulationType', type: 'select', options: ['amplitude', 'thickness'] }, 
+         { name: 'Number of Lines', id: 'numLines', type: 'range', min: 10, max: 500, value: 100, step: 1, unit:'', showIf: {id: 'pathType', value: 'linear'} }, 
+         { name: 'Path Angle', id: 'angle', type: 'range', min: 0, max: 180, value: 0, unit: '°', showIf: {id: 'pathType', value: 'linear'} }, 
+         { name: 'Wave Shape', id: 'waveShape', type: 'select', options: ['sine', 'triangle', 'square'], showIf: {id: 'modulationType', value: 'amplitude'} }, 
+         { name: 'Max Amplitude (mm)', id: 'amplitude', type: 'range', min: 0, max: 20, value: 2.5, step: 0.1, showIf: {id: 'modulationType', value: 'amplitude'} }, 
+         { name: 'Wave Frequency', id: 'frequency', type: 'range', min: 0.01, max: 1, value: 0.1, step: 0.01, unit:'', showIf: {id: 'modulationType', value: 'amplitude'} }, 
+         { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.2, step: 0.01, showIf: {id: 'modulationType', value: 'amplitude'} }, 
+         { name: 'Min Thickness (mm)', id: 'minThickness', type: 'range', min: 0, max: 5, value: 0.05, step: 0.01, showIf: {id: 'modulationType', value: 'thickness'} }, 
+         { name: 'Max Thickness (mm)', id: 'maxThickness', type: 'range', min: 0.05, max: 10, value: 1.5, step: 0.05, showIf: {id: 'modulationType', value: 'thickness'} }, 
+         { name: 'Spiral Tightness', id: 'tightness', type: 'range', min: 1, max: 20, value: 5, step: 0.5, unit:'', showIf: {id: 'pathType', value: 'spiral'} }, 
+         { name: 'Circle Spacing (mm)', id: 'spacing', type: 'range', min: 0.5, max: 20, value: 5, step: 0.5, showIf: {id: 'pathType', value: 'circles'} }, 
+         { name: 'Invert Effect', id: 'invert', type: 'checkbox' },
+         { name: 'Skip Every Other Line', id: 'skipRow', type: 'checkbox' }
+     ], 
+     voronoi: [ 
+         { name: 'Number of Points', id: 'points', type: 'range', min: 100, max: 20000, value: 2000, step: 50, unit:'' }, 
+         { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.1, step: 0.01, showIf: {id: 'fillType', value: 'outline'} }, 
+         { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 5, value: 1, unit:'' }, 
+         { name: 'Fill Type', id: 'fillType', type: 'select', options: ['outline', 'filled'] }, 
+         { name: 'Invert', id: 'invert', type: 'checkbox' } 
+     ], 
+     delaunay: [ 
+         { name: 'Number of Points', id: 'points', type: 'range', min: 100, max: 20000, value: 2000, step: 50, unit:'' }, 
+         { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.1, step: 0.01, showIf: {id: 'fillType', value: 'outline'} }, 
+         { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 5, value: 0, unit:'' }, 
+         { name: 'Fill Type', id: 'fillType', type: 'select', options: ['outline', 'filled'] }, 
+         { name: 'Invert', id: 'invert', type: 'checkbox' } 
+     ], 
+     'edge-art': [ 
+         { name: 'Canny Threshold 1', id: 'threshold1', type: 'range', min: 0, max: 255, value: 50, unit:'' }, 
+         { name: 'Canny Threshold 2', id: 'threshold2', type: 'range', min: 0, max: 255, value: 150, unit:'' }, 
+         { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.2, step: 0.01 }, 
+         { name: 'Simplify Epsilon', id: 'epsilon', type: 'range', min: 0, max: 10, value: 1.5, step: 0.1, unit:'' }, 
+     ],
+     'quadtree-art': [
+        { name: 'Detail Sensitivity', id: 'threshold', type: 'range', min: 1, max: 100, value: 8, step: 1, unit:'' },
+        { name: 'Max Subdivision Depth', id: 'maxDepth', type: 'range', min: 1, max: 12, value: 8, step: 1, unit:'' },
+        { name: 'Min Square Size (mm)', id: 'minSize', type: 'range', min: 0.1, max: 20, value: 1, step: 0.1, unit:'mm' },
+        { name: 'Fill Type', id: 'fillType', type: 'select', options: ['solid', 'outline'] },
+        { name: 'Stroke Width (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.1, step: 0.01, showIf: {id: 'fillType', value: 'outline'} },
+        { name: 'Invert', id: 'invert', type: 'checkbox' }
+     ]
+  }; 
+  
+  // --- Enhanced Random Scene Prompts ---
+  const randomScenePrompts = [
+    "A tranquil forest path covered in moss, with sunbeams filtering through the canopy.",
+    "A bustling futuristic city street at night, with flying vehicles and holographic advertisements.",
+    "A cozy, cluttered artist's studio with canvases, paints, and a large window.",
+    "A dramatic coastal scene with towering cliffs and powerful waves crashing against the rocks.",
+    "A detailed vintage motorcycle parked on a European cobblestone street.",
+    "An ornate, mystical library filled with floating books and glowing runes.",
+    "A peaceful Japanese zen garden with raked sand, mossy stones, and a small pagoda.",
+    "A steampunk-inspired mechanical owl, with intricate gears and brass fittings.",
+    "A majestic dragon perched atop a craggy mountain peak, overlooking a valley."
+  ];
+
+  // --- Style prompts for the generation model ---
+  const stylePrompts = {
+      default: '',
+      hedcut: ', in the style of a classic hedcut portrait, using intricate stippling and fine cross-hatching to create depth and texture',
+      'modulated-line': ', as an op-art piece created from a series of modulated wavy lines, where the thickness and amplitude of the lines vary to create the entire image',
+      'pen-and-ink': ', a detailed pen and ink drawing, using sketchy cross-hatching and varied line weights for shading and texture'
+  };
+
+  // --- Function Definitions --- 
+
+  /**
+   * Displays an error message in the UI.
+   * @param {string} message - The error message to display.
+   */
+  function showError(message) { 
+       console.error(message); 
+       errorDisplay.textContent = message; 
+       errorDisplay.classList.remove('hidden'); 
+  } 
+
+  /** Hides the error message display. */ 
+  function hideError() { 
+       errorDisplay.classList.add('hidden'); 
+  } 
+
+  /**
+   * Gets the grayscale value (0-255) of a pixel from image data.
+   * @param {number} x - The x-coordinate in the image's pixel space.
+   * @param {number} y - The y-coordinate in the image's pixel space.
+   * @param {number} width - The width of the image data.
+   * @param {Uint8ClampedArray} data - The image data array.
+   * @returns {number} The grayscale value.
+   */
+  function getGrayscale(x, y, width, data) { 
+       x = Math.floor(x); 
+       y = Math.floor(y); 
+       if (x < 0 || x >= width || y < 0 || y >= data.length / (4 * width)) { 
+           return 255; // default to white if out of bounds 
+       } 
+       const i = (y * width + x) * 4; 
+       return (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114); 
+  } 
+
+  /**
+   * Triggers a file download in the browser.
+   * @param {string} filename - The desired name for the downloaded file.
+   * @param {string} content - The content of the file.
+   * @param {string} mimeType - The MIME type of the file.
+   */
+  function downloadFile(filename, content, mimeType) { 
+       const blob = new Blob([content], { type: mimeType }); 
+       const a = document.createElement('a'); 
+       a.href = URL.createObjectURL(blob); 
+       a.download = filename; 
+       document.body.appendChild(a); 
+       a.click(); 
+       document.body.removeChild(a); 
+       URL.revokeObjectURL(a.href); 
+  } 
+
+  /**
+   * Converts an SVG string to a DXF drawing object.
+   * @param {string} svgContent - The SVG data as a string.
+   * @returns {Promise<object|null>} A promise that resolves to an ezdxf drawing object or null.
+   */
+  async function generateDxfFromSvg(svgContent) { 
+       if (!svgContent || typeof ezdxf === 'undefined') return null; 
+
+       try { 
+           const dxf = new ezdxf.Drawing(); 
+           const msp = dxf.modelspace(); 
+           const tempDiv = document.createElement('div'); 
+           tempDiv.innerHTML = svgContent; 
+
+           const svgNode = tempDiv.querySelector('svg'); 
+           if (!svgNode) return null; 
+           
+           const svgWidthAttr = svgNode.getAttribute('width'); 
+           const svgHeightAttr = svgNode.getAttribute('height'); 
+
+           if (!svgWidthAttr || !svgHeightAttr) { 
+               console.error("SVG is missing width/height attributes for DXF conversion."); 
+               return null; 
+           } 
+
+           const svgWidth = parseFloat(svgWidthAttr);  
+           const svgHeight = parseFloat(svgHeightAttr); 
+           
+           const viewBox = (svgNode.getAttribute('viewBox') || `0 0 ${svgWidth} ${svgHeight}`).split(' ').map(parseFloat); 
+           
+           const scaleX = svgWidth / viewBox[2]; 
+           const scaleY = svgHeight / viewBox[3]; 
+           
+           // DXF Y-axis is inverted compared to SVG
+           const y_inv = (y_svg) => svgHeight - (y_svg * scaleY); 
+           const to_mm_x = (x_svg) => x_svg * scaleX; 
+           const to_mm_y = (y_svg) => y_svg * scaleY; 
+           
+           // Convert basic SVG shapes to DXF entities
+           tempDiv.querySelectorAll('circle').forEach(c => { 
+               msp.addCircle( 
+                   [to_mm_x(parseFloat(c.getAttribute('cx'))), y_inv(parseFloat(c.getAttribute('cy')))],  
+                   to_mm_x(parseFloat(c.getAttribute('r'))) // Assume uniform scaling 
+               ); 
+           }); 
+
+           tempDiv.querySelectorAll('rect').forEach(el => { 
+               const x = to_mm_x(parseFloat(el.getAttribute('x'))); 
+               const y = y_inv(parseFloat(el.getAttribute('y'))); 
+               const w = to_mm_x(parseFloat(el.getAttribute('width'))); 
+               const h = to_mm_y(parseFloat(el.getAttribute('height'))); 
+               msp.addLwpolyline([[x, y], [x + w, y], [x + w, y - h], [x, y - h]], { closed: true }); 
+           }); 
+           
+           tempDiv.querySelectorAll('line').forEach(el => { 
+               const x1 = to_mm_x(parseFloat(el.getAttribute('x1'))); 
+               const y1 = y_inv(parseFloat(el.getAttribute('y1'))); 
+               const x2 = to_mm_x(parseFloat(el.getAttribute('x2'))); 
+               const y2 = y_inv(parseFloat(el.getAttribute('y2'))); 
+               msp.addLine([x1, y1], [x2, y2]); 
+           }); 
+
+           // Convert more complex shapes (path, polygon, text)
+           tempDiv.querySelectorAll('path, polygon, text').forEach(p => { 
+               try { 
+                   if(p.tagName === 'polygon'){ 
+                       const points = p.getAttribute('points').trim().split(/\s+/).map(pair => pair.split(',').map(parseFloat)); 
+                       const polyline = points.map(([x,y]) => [to_mm_x(x), y_inv(y)]); 
+                       if(polyline.length > 1) msp.addLwpolyline(polyline, { closed: true }); 
+                       return; 
+                   } 
+                    if (p.tagName === 'text') { 
+                       msp.addText(p.textContent, { 
+                           x: to_mm_x(parseFloat(p.getAttribute('x'))), 
+                           y: y_inv(parseFloat(p.getAttribute('y'))), 
+                           height: to_mm_y(parseFloat(p.getAttribute('font-size')) * 0.5) // Approximation
+                       }); 
+                       return; 
+                   } 
+
+                   const d = p.getAttribute('d'); 
+                   // Basic SVG Path to LWPolyline (handles only M, L, Z commands for simplicity)
+                   const commands = d.match(/[MmLlHhVvZz][^MmLlHhVvZz]*/g); 
+                   if (!commands) return; 
+                   
+                   let current_point = [0,0]; 
+                   let polyline = []; 
+
+                   for(const cmdStr of commands){ 
+                       const cmd = cmdStr[0]; 
+                       const pts = (cmdStr.substring(1).trim().split(/[\s,]+/) || []).map(parseFloat); 
+                       
+                       if (cmd === 'M' || cmd === 'm') { // Move To
+                           if (polyline.length > 1) msp.addLwpolyline(polyline); 
+                           polyline = []; 
+                           let x = pts[0], y = pts[1]; 
+                           if (cmd === 'm') { x += current_point[0]; y += current_point[1]; } 
+                           polyline.push([to_mm_x(x), y_inv(y)]); 
+                           current_point = [x, y]; 
+
+                           for (let i = 2; i < pts.length; i+=2) { 
+                               x = pts[i]; y = pts[i+1]; 
+                               if (cmd === 'm') { x += current_point[0]; y += current_point[1]; } 
+                                polyline.push([to_mm_x(x), y_inv(y)]); 
+                                current_point = [x, y]; 
+                           } 
+                       } else if (cmd === 'L' || cmd === 'l') { // Line To
+                            for (let i = 0; i < pts.length; i+=2) { 
+                               let x = pts[i], y = pts[i+1]; 
+                               if (cmd === 'l') { x += current_point[0]; y += current_point[1]; } 
+                                polyline.push([to_mm_x(x), y_inv(y)]); 
+                                current_point = [x, y]; 
+                           } 
+                       } else if (cmd === 'Z' || cmd === 'z') { // Close Path
+                           if (polyline.length > 1) msp.addLwpolyline(polyline, { closed: true }); 
+                           polyline = []; 
+                       } 
+                   } 
+                   if (polyline.length > 1) msp.addLwpolyline(polyline); 
+
+               } catch(e) { console.error("Could not parse element for DXF:", p, e)} 
+           }); 
+           return dxf; 
+       } catch(err) { 
+           console.error("DXF generation failed:", err); 
+           return null; 
+       } 
+  } 
+
+
+  /**
+   * Renders the final SVG content to the preview area and sets up download buttons.
+   * @param {string} svgContent - The final SVG string to render.
+   */
+  async function renderFinalOutput(svgContent) { 
+       lastGeneratedSVGContent = svgContent; 
+       svgPreview.innerHTML = svgContent; 
+       downloadButtons.classList.remove('hidden'); 
+       
+       try { 
+           const dxf = await generateDxfFromSvg(svgContent); 
+            if (dxf) { 
+                downloadDXF.onclick = () => downloadFile('output.dxf', dxf.toString(), 'application/dxf'); 
+                downloadDXF.style.display = 'inline-block'; 
+            } else { 
+                downloadDXF.style.display = 'none'; 
+            } 
+       } catch (e) { 
+           console.error("DXF Generation Error:", e); 
+           downloadDXF.style.display = 'none'; 
+       } 
+  } 
+
+  /**
+   * Converts an OpenCV contour object into an SVG path data string.
+   * @param {object} contour - The OpenCV contour.
+   * @returns {string} The SVG 'd' attribute string.
+   */
+  function openCVContourToPath(contour) { 
+       let d = `M${contour.data32S[0]},${contour.data32S[1]}`; 
+       for (let j = 1; j < contour.rows; ++j) d += ` L${contour.data32S[j*2]},${contour.data32S[j*2+1]}`; 
+       return d; 
+  } 
+
+  // --- Main Generation Functions (Executed on the Main Thread) --- 
+
+  /**
+   * Creates a complete SVG string from a collection of child elements and dimensions.
+   * @param {string} elements - The inner content of the SVG (e.g., paths, circles).
+   * @param {number} widthMM - The final output width in millimeters.
+   * @param {number} heightMM - The final output height in millimeters.
+   * @param {number} viewBoxWidth - The width of the SVG viewBox (internal resolution).
+   * @param {number} viewBoxHeight - The height of the SVG viewBox (internal resolution).
+   * @returns {string} A complete SVG string.
+   */
+  function buildSvg(elements, widthMM, heightMM, viewBoxWidth, viewBoxHeight) { 
+       return `<svg width="${widthMM}mm" height="${heightMM}mm" viewBox="0 0 ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg" stroke-linecap="round" stroke-linejoin="round">${elements}</svg>`; 
+  } 
+
+  // Generates ASCII/Text art from the source image
+  async function generateTextArt(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight) { 
+       const { textString, fontFamily, charHeight, maxLines, lineThickness, invert, skipRow } = params; 
+       const data = originalImageData.data; 
+       
+       // SCALING FIX: Calculate the scale from physical mm to viewBox pixels
+       const scale = viewBoxHeight / heightMM;  
+       const charHeightPx = charHeight * scale; // Character height in viewBox pixels
+       const lineThicknessPx = lineThickness * scale; 
+
+       // Measure character width to create a grid
+       const tempCanvas = document.createElement('canvas'); 
+       const tempCtx = tempCanvas.getContext('2d'); 
+       tempCtx.font = `${charHeightPx}px ${fontFamily}`; 
+       const charMetrics = tempCtx.measureText('M'); // Use a standard character for width
+       const charWidthPx = charMetrics.width; 
+
+       let svgElements = ''; 
+       let charIndex = 0; 
+
+       const clipPathId = `clip-${Math.random().toString(36).substring(7)}`; 
+       svgElements += `<defs><clipPath id="${clipPathId}"><rect x="0" y="0" width="${viewBoxWidth}" height="${viewBoxHeight}" /></clipPath></defs>`; 
+       svgElements += `<g clip-path="url(#${clipPathId})">`; 
+       
+       const textColor = invert ? 'white' : 'black'; 
+       const strikeColor = invert ? 'black' : 'white'; 
+       svgPreview.style.backgroundColor = invert ? 'black' : 'white'; 
+
+       // Iterate over the image grid, placing characters and strikethrough lines
+       const yStep = charHeightPx * (skipRow ? 2 : 1);
+       for (let y = 0; y < viewBoxHeight; y += yStep) { 
+           for (let x = 0; x < viewBoxWidth; x += charWidthPx) { 
+               const centerX = x + charWidthPx / 2; 
+               const centerY = y + charHeightPx / 2; 
+               
+               const centerGray = getGrayscale(centerX, centerY, viewBoxWidth, data); 
+               
+               const isForeground = invert ? centerGray > 128 : centerGray < 128; 
+
+               if (isForeground) { 
+                   const char = textString[charIndex % textString.length]; 
+                   charIndex++; 
+                   svgElements += `<text x="${x}" y="${y + charHeightPx * 0.8}" font-family="${fontFamily}" font-size="${charHeightPx}px" fill="${textColor}" dominant-baseline="middle" text-anchor="start">${char}</text>`; 
+                   
+                   let strikeIntensity = (255 - centerGray) / 255; 
+                   if(invert) strikeIntensity = 1 - strikeIntensity; 
+
+                   const numLines = Math.floor(strikeIntensity * maxLines); 
+                   if (numLines > 0) { 
+                       const lineSpacing = charHeightPx / (numLines + 1); 
+                       for (let i = 1; i <= numLines; i++) { 
+                           const lineY = y + (i * lineSpacing); 
+                           svgElements += `<line x1="${x}" y1="${lineY}" x2="${x + charWidthPx}" y2="${lineY}" stroke="${strikeColor}" stroke-width="${lineThicknessPx}" />`; 
+                       } 
+                   } 
+               } 
+           } 
+       } 
+       svgElements += `</g>`; 
+
+       return buildSvg(svgElements, widthMM, heightMM, viewBoxWidth, viewBoxHeight); 
+  } 
+
+  // Traces the image into a vector using ImageTracer.js
+  async function generateVectorTrace(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight) { 
+       return new Promise((resolve, reject) => { 
+           if (typeof ImageTracer === 'undefined') { 
+               return reject(new Error('ImageTracer.js is not loaded.')); 
+           } 
+
+           const { renderMode, ltres, qtres, pathomit, strokewidth, roundcoords, invert } = params; 
+           
+           const black = {r:0,g:0,b:0,a:255}; 
+           const white = {r:255,g:255,b:255,a:255}; 
+           const palette = invert ? [black, white] : [white, black]; 
+           
+           svgPreview.style.backgroundColor = invert ? 'black' : 'white'; 
+
+           // SCALING FIX: Convert strokewidth from mm into viewBox pixels for ImageTracer
+           const scale = viewBoxWidth / widthMM; 
+           const strokewidthPx = strokewidth * scale; 
+
+           const tracingOptions = { 
+               pal: palette, 
+               ltres: ltres, 
+               qtres: qtres, 
+               pathomit: pathomit, 
+               roundcoords: roundcoords, 
+               viewbox: true,  
+               strokewidth: strokewidthPx, 
+               linefilter: renderMode === 'outline' 
+           }; 
+           
+           const imageDataUrl = originalCanvas.toDataURL(); 
+
+           ImageTracer.imageToSVG( 
+               imageDataUrl, 
+               (svgString) => { 
+                   let finalSvg = svgString; 
+
+                   // If outline mode, adjust path attributes
+                   if (renderMode === 'outline') { 
+                       const parser = new DOMParser(); 
+                       const svgDoc = parser.parseFromString(svgString, "image/svg+xml"); 
+                       const paths = svgDoc.querySelectorAll('path'); 
+                       paths.forEach(p => { 
+                           p.setAttribute('fill', 'none'); 
+                           p.setAttribute('stroke', invert ? 'white' : 'black'); 
+                           p.setAttribute('stroke-width', tracingOptions.strokewidth); 
+                       }); 
+                       finalSvg = new XMLSerializer().serializeToString(svgDoc.documentElement); 
+                   } 
+
+                   // Set final physical dimensions on the SVG element
+                   const parser = new DOMParser(); 
+                   const svgDoc = parser.parseFromString(finalSvg, "image/svg+xml"); 
+                   const svgElement = svgDoc.documentElement; 
+                   svgElement.setAttribute('width', `${widthMM}mm`); 
+                   svgElement.setAttribute('height', `${heightMM}mm`); 
+
+                   resolve(new XMLSerializer().serializeToString(svgElement)); 
+               }, 
+               tracingOptions 
+           ); 
+       }); 
+  } 
+
+  // Generates a halftone pattern from the image
+  function generateHalftone(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight) { 
+       const { gridType, spacing, minDotSize, maxDotSize, screenAngle, shape, invert, holeStyle, skipRow } = params; 
+       
+       let elements = ''; 
+       const data = originalImageData.data; 
+       
+       // SCALING FIX: Calculate scale and convert all mm parameters to viewBox pixel units
+       const scale = viewBoxWidth / widthMM; 
+       const spacingPx = spacing * scale; 
+       const minDotRadiusPx = (minDotSize / 2) * scale; 
+       const maxDotRadiusPx = (maxDotSize / 2) * scale; 
+
+       let points = []; 
+
+       // Generate grid points in viewBox coordinates based on selected type
+       if (gridType === 'hexagonal') { 
+           const hexHeight = spacingPx; 
+           const hexWidth = (Math.sqrt(3) / 2) * hexHeight; 
+           for (let row = 0; ; row++) { 
+               const y = row * (hexHeight * 0.75); 
+               if (y > viewBoxHeight + hexHeight) break; 
+               if (skipRow && row % 2 !== 0) continue;
+               for (let col = 0; ; col++) { 
+                   let x = col * hexWidth; 
+                   if (row % 2 !== 0) x += hexWidth / 2; 
+                   if(x > viewBoxWidth + hexWidth) break; 
+                   points.push([x,y]); 
+               } 
+           } 
+       } else if (gridType === 'stochastic') { 
+           const numPoints = (viewBoxWidth / spacingPx) * (viewBoxHeight / spacingPx); 
+            for(let i=0; i<numPoints; i++){ 
+               points.push([Math.random()*viewBoxWidth, Math.random()*viewBoxHeight]); 
+            } 
+       } else { // Square grid
+            let rowCounter = 0;
+            for (let y = -spacingPx; y < viewBoxHeight + spacingPx; y += spacingPx) { 
+                rowCounter++;
+                if (skipRow && rowCounter % 2 !== 0) continue;
+               for (let x = -spacingPx; x < viewBoxWidth + spacingPx; x += spacingPx) { 
+                   points.push([x,y]); 
+               } 
+           } 
+       } 
+
+       const clipPathId = `clip-${Math.random().toString(36).substring(7)}`; 
+       elements += `<defs><clipPath id="${clipPathId}"><rect x="0" y="0" width="${viewBoxWidth}" height="${viewBoxHeight}" /></clipPath></defs>`; 
+       let mainGroup = `<g clip-path="url(#${clipPathId})">`; 
+
+       // Draw a shape at each point, with size determined by image brightness
+       points.forEach(([x,y]) => { 
+           const gray = getGrayscale(x, y, viewBoxWidth, data); 
+           let intensity = (255 - gray) / 255; 
+           if (invert) intensity = 1 - intensity; 
+           if(intensity < 0.01) return; 
+
+           const radiusPx = minDotRadiusPx + (maxDotRadiusPx - minDotRadiusPx) * intensity; 
+           
+           if (radiusPx > 0.01) { 
+                const style = holeStyle === 'filled'  
+                   ? `fill="black"` 
+                   : `fill="none" stroke="black" stroke-width="${0.05 * scale}"`; // Also scale stroke width
+                   
+               if (shape === 'circle') { 
+                   mainGroup += `<circle cx="${x.toFixed(3)}" cy="${y.toFixed(3)}" r="${radiusPx.toFixed(3)}" ${style} />\n`; 
+               } else { 
+                   const side = radiusPx * 2; 
+                   let rotation = screenAngle; 
+                   if(shape === 'diamond') rotation += 45; 
+                   if(shape === 'line') { 
+                        mainGroup += `<line x1="${x - radiusPx}" y1="${y}" x2="${x + radiusPx}" y2="${y}" stroke="black" stroke-width="${0.1 * scale}" transform="rotate(${rotation} ${x} ${y})"/>\n`; 
+                   } else { 
+                        mainGroup += `<rect x="${x - radiusPx}" y="${y - radiusPx}" width="${side.toFixed(3)}" height="${side.toFixed(3)}" ${style} transform="rotate(${rotation} ${x} ${y})"/>\n`; 
+                   } 
+               } 
+           } 
+       }); 
+       mainGroup += `</g>`; 
+       elements += mainGroup; 
+
+       return buildSvg(elements, widthMM, heightMM, viewBoxWidth, viewBoxHeight); 
+  } 
+
+  // Generates art using modulated lines (wavy or variable thickness)
+  function generateModulatedLines(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight) { 
+       const { invert, skipRow } = params; 
+       let elements = ''; 
+       const data = originalImageData.data; 
+       const centerX = viewBoxWidth / 2; 
+       const centerY = viewBoxHeight / 2; 
+       const pathType = params.pathType || 'linear'; 
+
+       const scale = viewBoxWidth / widthMM; 
+
+       // Define a generator function for creating the base paths (lines, spiral, circles)
+       let pathGenerator; 
+       if (pathType === 'spiral') { 
+           const { tightness } = params; 
+           const tightnessPx = tightness * scale; 
+           pathGenerator = function*() { 
+               const maxRadius = Math.hypot(viewBoxWidth, viewBoxHeight); 
+               let path = []; 
+               for (let angle = 0; ; angle += Math.PI / 180) { 
+                   const radius = tightnessPx * angle / (2 * Math.PI); 
+                   if(radius > maxRadius) break; 
+                   const x = centerX + radius * Math.cos(angle); 
+                   const y = centerY + radius * Math.sin(angle); 
+                   path.push([x,y]); 
+               } 
+               yield path; 
+           } 
+       } else if (pathType === 'circles') { 
+           const spacingPx = params.spacing * scale; 
+           pathGenerator = function*() { 
+               const maxRadius = Math.hypot(viewBoxWidth, viewBoxHeight) / 2; 
+               const step = spacingPx * (skipRow ? 2 : 1);
+               for (let r = spacingPx; r < maxRadius; r += step) { 
+                   let circlePoints = []; 
+                   for (let angle = 0; angle <= 2.01 * Math.PI; angle += Math.PI / 180) { 
+                       const x = centerX + r * Math.cos(angle); 
+                       const y = centerY + r * Math.sin(angle); 
+                       circlePoints.push([x,y]); 
+                   } 
+                   yield circlePoints; 
+               } 
+           } 
+       } else { // linear
+            const { numLines, angle } = params; 
+            const angleRad = angle * Math.PI / 180; 
+            const cosA = Math.cos(angleRad); 
+            const sinA = Math.sin(angleRad); 
+            const diagonal = Math.hypot(viewBoxWidth, viewBoxHeight); 
+            const perpSpacing = diagonal / numLines; 
+
+            pathGenerator = function*() { 
+               for (let i = 0; i <= numLines; i += (skipRow ? 2 : 1)) { 
+                   const p = -diagonal / 2 + i * perpSpacing; 
+                   let linePoints = []; 
+                    for (let l = -diagonal / 2; l <= diagonal / 2; l+=2) { // step by 2px for performance
+                       const rotatedL = l * cosA - p * sinA; 
+                       const rotatedP = l * sinA + p * cosA; 
+                       const x = rotatedL + centerX; 
+                       const y = rotatedP + centerY; 
+                       
+                       linePoints.push([x,y]); 
+                    } 
+                    yield linePoints; 
+               } 
+            } 
+       } 
+
+       const modulationType = params.modulationType || 'amplitude'; 
+
+       // Modulate each path based on the underlying image
+       for(const path of pathGenerator()){ 
+           if(path.length < 2) continue; 
+
+           if(modulationType === 'thickness'){ 
+                const minThicknessPx = params.minThickness * scale; 
+                const maxThicknessPx = params.maxThickness * scale; 
+                let topPoints = [], bottomPoints = []; 
+                for(let i=0; i < path.length; i++){ 
+                   const [x,y] = path[i]; 
+                   if(x < 0 || x > viewBoxWidth || y < 0 || y > viewBoxHeight) continue; 
+
+                   const [x_next, y_next] = i < path.length - 1 ? path[i+1] : path[i]; 
+                   const dx = x_next - x; 
+                   const dy = y_next - y; 
+                   const p_angle = Math.atan2(dy, dx) + Math.PI/2; // Perpendicular angle
+                   
+                   const gray = getGrayscale(x,y,viewBoxWidth, data); 
+                   let intensity = (255 - gray) / 255; 
+                   if (invert) intensity = 1 - intensity; 
+                   const currentThickness = minThicknessPx + (maxThicknessPx - minThicknessPx) * intensity; 
+                   
+                   const halfThick = currentThickness / 2; 
+                   topPoints.push([x + halfThick * Math.cos(p_angle), y + halfThick * Math.sin(p_angle)]); 
+                   bottomPoints.push([x - halfThick * Math.cos(p_angle), y - halfThick * Math.sin(p_angle)]); 
+                } 
+                if(topPoints.length > 1){ 
+                    const pathData = d3.line()(topPoints) + " " + d3.line()(bottomPoints.reverse()).replace('M', 'L') + " Z"; 
+                    elements += `<path d="${pathData}" stroke="none" fill="black" />\n`; 
+                } 
+
+           } else { // Amplitude modulation
+                const amplitudePx = params.amplitude * scale; 
+                const strokeWidthPx = params.strokeWidth * scale; 
+                const { frequency, waveShape } = params; 
+                let modulatedPath = []; 
+                 for(let i=0; i<path.length; i++){ 
+                   const [x,y] = path[i]; 
+                   if(x < 0 || x > viewBoxWidth || y < 0 || y > viewBoxHeight) continue; 
+                   
+                   const gray = getGrayscale(x,y,viewBoxWidth, data); 
+                   let intensity = (255 - gray) / 255; 
+                   if (invert) intensity = 1 - intensity; 
+
+                   let wave; 
+                   const phase = i * frequency; 
+                    if (waveShape === 'triangle') { 
+                       const t = (phase / Math.PI) % 2; 
+                       wave = Math.abs(t - 1) * 2 - 1; 
+                    } else if (waveShape === 'square') { 
+                       wave = Math.sin(phase) >= 0 ? 1 : -1; 
+                    } else { // Sine wave
+                       wave = Math.sin(phase); 
+                    } 
+                    const offset = amplitudePx * intensity * wave; 
+
+                    const [x_prev, y_prev] = i > 0 ? path[i-1] : path[i]; 
+                    const [x_next, y_next] = i < path.length - 1 ? path[i+1] : path[i]; 
+                    const angle = Math.atan2(y_next - y_prev, x_next - x_prev) + Math.PI/2; 
+                    
+                    modulatedPath.push([x + offset * Math.cos(angle), y + offset * Math.sin(angle)]); 
+                 } 
+               if(modulatedPath.length > 1) { 
+                   elements += `<path d="${d3.line()(modulatedPath)}" fill="none" stroke="black" stroke-width="${strokeWidthPx.toFixed(3)}"/>`; 
+               } 
+           } 
+       } 
+       const clipPathId = `clip-${Math.random().toString(36).substring(7)}`; 
+       let finalSVG = `<defs><clipPath id="${clipPathId}"><rect x="0" y="0" width="${viewBoxWidth}" height="${viewBoxHeight}" /></clipPath></defs>`; 
+       finalSVG += `<g clip-path="url(#${clipPathId})">${elements}</g>`; 
+
+       return buildSvg(finalSVG, widthMM, heightMM, viewBoxWidth, viewBoxHeight); 
+  } 
+
+  // Generates line art by detecting edges with OpenCV
+  async function generateEdgeArt(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight) { 
+       return new Promise((resolve, reject) => { 
+           // OpenCV can take a moment to load, so we check for its availability
+           if (!window.cv || typeof cv.Canny !== 'function') { 
+                const checkOpenCV = () => { 
+                   if (window.cv && typeof cv.Canny === 'function') { 
+                       console.log("OpenCV loaded."); 
+                       generateEdgeArt(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight).then(resolve).catch(reject); 
+                   } else { 
+                       console.log("Waiting for OpenCV..."); 
+                       setTimeout(checkOpenCV, 100); 
+                   } 
+                }; 
+                checkOpenCV(); 
+                return; 
+           } 
+           try { 
+               const { threshold1, threshold2, epsilon, strokeWidth } = params; 
+               let src = cv.matFromImageData(originalImageData); 
+               let dst = new cv.Mat(), gray = new cv.Mat(); 
+               cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0); 
+               cv.Canny(dst, dst, threshold1, threshold2, 3, false); 
+
+               let contours = new cv.MatVector(), hierarchy = new cv.Mat(); 
+               cv.findContours(dst, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE); 
+
+               let paths = ''; 
+               const scale = viewBoxWidth / widthMM; 
+               const strokeWidthPx = strokeWidth * scale; 
+               
+               // Convert detected contours to SVG paths
+               for (let i = 0; i < contours.size(); ++i) { 
+                   const contour = contours.get(i); 
+                   let simplified = new cv.Mat(); 
+                   cv.approxPolyDP(contour, simplified, epsilon, true); // Simplify path
+                   if (simplified.rows > 1) { 
+                       paths += `<path d="${openCVContourToPath(simplified)}" fill="none" stroke="black" stroke-width="${strokeWidthPx.toFixed(3)}" />\n`; 
+                   } 
+                   simplified.delete(); contour.delete(); 
+               } 
+               // Clean up OpenCV memory
+               src.delete(); dst.delete(); gray.delete(); contours.delete(); hierarchy.delete(); 
+               resolve(buildSvg(paths, widthMM, heightMM, viewBoxWidth, viewBoxHeight)); 
+           } catch (err) { reject(err); } 
+       }); 
+  } 
+
+  // --- API Calls for AI Generation --- 
+  // Generates an enhanced text prompt using Gemini
+  async function generatePromptWithGemini(seedPrompt, promptType = 'scene', imageFile = null) { 
+       loaderText.textContent = "Enhancing prompt..."; 
+       loader.classList.remove('hidden'); 
+       hideError(); 
+
+       const detailValue = document.getElementById('detailLevel').value; 
+       const shadingValue = document.getElementById('shadingStyle').value; 
+       const styleValue = document.getElementById('generationStyle').value;
+       const styleText = stylePrompts[styleValue] || '';
+
+       let promptInstructions = ''; 
+
+       // Different instructions for generating patterns vs. scenes
+       if (promptType === 'pattern') { 
+           promptInstructions = `You are an expert prompt writer for creating abstract textures and patterns for physical etching. 
+  **CRITICAL INSTRUCTIONS:** 1.  **Generate a PATTERN, not a picture of something.** The output should be an abstract, repeatable, or textured design. 
+  2.  **Style:** The pattern MUST be ${shadingValue}${styleText}. This is the most important rule. 
+  3.  **Detail Level:** The pattern MUST have a ${detailValue} level of detail. 
+  4.  **Content:** Generate a prompt describing one of the following: 
+      * A seamless, tiling geometric pattern (e.g., tessellations, Art Deco motifs, mandalas, Islamic patterns). 
+      * An organic texture (e.g., wood grain, cracked earth, liquid ripples, microscopic cellular structures, marble veins). 
+      * A procedurally generated art style (e.g., reaction-diffusion, Voronoi diagrams, Perlin noise). 
+  5.  **Exclusions:** Do NOT include recognizable objects, characters, or scenes. Focus ONLY on the abstract pattern or texture itself. 
+  Create the prompt now.`; 
+       } else { // 'scene' or image-based
+           let contentInstruction = `The prompt should describe a scene, object, or concept based on the user's idea: "${seedPrompt}".`; 
+           if (imageFile) { 
+               contentInstruction = `Based on the provided image, create a detailed, descriptive prompt for generating a new black and white line art image. The prompt should focus on the main subject, its pose, and key features.`; 
+           } 
+           promptInstructions = `You are an expert prompt writer for an image generation AI. Your task is to take a user's idea and expand it into a single, complete prompt. 
+  **CRITICAL INSTRUCTIONS:** 1.  **Style:** The final image MUST be ${shadingValue}${styleText}. This is the most important rule. 
+  2.  **Detail Level:** The final image MUST have a ${detailValue} level of detail. 
+  3.  **Content:** ${contentInstruction} 
+  4.  **Format:** The output must be a single, complete sentence or two. It should be ready for direct use by an image generator. 
+  5.  **Exclusions:** Do NOT use words like "color", "photo", "realistic photo", "ink drawing", "technical drawing", "fantasy", "surreal", or "abstract". The focus is on clean line art suitable for physical etching. 
+  Create the prompt now.`; 
+       } 
+       
+       const payload = { contents: [{ parts: [] }] }; 
+       payload.contents[0].parts.push({ "text": promptInstructions }); 
+       
+       // If an image is provided, convert it to base64 and add to the payload
+       if (imageFile) { 
+           const base64Data = await new Promise((resolve, reject) => { 
+               const reader = new FileReader(); 
+               reader.onloadend = () => resolve(reader.result.split(',')[1]); 
+               reader.onerror = reject; 
+               reader.readAsDataURL(imageFile); 
+           }); 
+           payload.contents[0].parts.push({ "inlineData": { "mimeType": imageFile.type, "data": base64Data } }); 
+       } 
+
+       const apiKey = "";  // API key is left empty and will be injected by the environment
+       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`; 
+
+       try { 
+           const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+           const responseBody = await response.text(); 
+           
+           if (!response.ok) { 
+                console.error("Prompt Generation API Error:", responseBody); 
+                let errorMessage = `API returned status ${response.status}.`; 
+                try {  
+                    const errorJson = JSON.parse(responseBody); 
+                    errorMessage = errorJson.error?.message || errorMessage; 
+                } catch (e) { /* Ignore parsing error */ } 
+                throw new Error(errorMessage); 
+           } 
+           
+           const result = JSON.parse(responseBody); 
+           if (result.candidates?.[0]?.content?.parts?.[0]?.text) { 
+               return result.candidates[0].content.parts[0].text; 
+           } else {  
+               throw new Error('The AI did not return a valid prompt.'); 
+           } 
+       } catch (err) { 
+           throw new Error(`Failed to generate prompt: ${err.message}`); 
+       } finally { 
+           loader.classList.add('hidden'); 
+       } 
+  }; 
+
+  // Generates an image from a text prompt using Imagen
+  async function generateImageFromText(prompt) {
+    if (!prompt || prompt.trim() === '') {
+        showError("Please enter a prompt to generate an image.");
+        return;
+    }
+    loader.classList.remove('hidden');
+    loaderText.textContent = 'Generating AI Image...';
+    generateBtn.disabled = true;
+    generateImageBtn.disabled = true;
+    hideError();
+
+    try {
+        loaderText.textContent = 'Sending to image generator...';
+        const aspectRatio = document.getElementById('aspectRatio').value;
+        const shadingValue = document.getElementById('shadingStyle').value;
+        const detailValue = document.getElementById('detailLevel').value;
+        const styleValue = document.getElementById('generationStyle').value;
+        const styleText = stylePrompts[styleValue] || '';
+
+        const fullPrompt = `${prompt}, an image in the style of ${shadingValue}${styleText}, with ${detailValue}, fine lines, vector art style, high contrast, clean sketch`;
+        const payload = { instances: [{ prompt: fullPrompt }], parameters: { "sampleCount": 1, "aspectRatio": aspectRatio } };
+        const apiKey = ""; // API key is left empty and will be injected by the environment
+        
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const responseBody = await response.text();
+
+        if (!response.ok) {
+            console.error("Image Generation API Error:", responseBody);
+            let errorMessage = `API returned status ${response.status}.`;
+            try {
+                const errorJson = JSON.parse(responseBody);
+                errorMessage = errorJson.error?.message || errorMessage;
+            } catch (e) {
+                if (responseBody && responseBody.length < 500) {
+                    errorMessage = responseBody;
+                }
+            }
+            throw new Error(errorMessage);
+        }
+
+        const result = JSON.parse(responseBody);
+        if (result.predictions?.[0]?.bytesBase64Encoded) {
+            const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+            const blob = await fetch(imageUrl).then(res => res.blob());
+            const file = new File([blob], "generated_image.png", { type: "image/png" });
+            setAsSourceImage(file);
+        } else {
+            console.error("Unexpected success response:", result);
+            throw new Error('No image found in the API response.');
+        }
+    } catch(err) {
+        showError(`Failed to generate image: ${err.message}`);
+    } finally {
+        loader.classList.add('hidden');
+        generateBtn.disabled = !currentImageObject;
+        generateImageBtn.disabled = false;
+    }
+  }
+
+  // Generates an AI image based on the currently uploaded image
+  async function generateAiFromUpload() { 
+       if (!uploadedImageFile) { 
+           showError("Please upload an image first."); 
+           return; 
+       } 
+       try {
+            const prompt = await generatePromptWithGemini("Create art from this image", 'scene', uploadedImageFile);
+            await generateImageFromText(prompt);
+        } catch (e) {
+            showError(e.message);
+            loader.classList.add('hidden');
+            generateImageBtn.disabled = !currentImageObject;
+        }
+  } 
+
+
+  // --- Core Generation Logic --- 
+  // This is the main function called when the "Convert to Vector" button is clicked.
+  async function generate() { 
+       if (!currentImageObject || !originalImageData) {  
+           showError('Please upload, adjust, and process an image first.');  
+           return;  
+       } 
+       if (currentWorker) currentWorker.terminate(); // Terminate any existing worker
+       
+       // Update UI to show loading state
+       loader.classList.remove('hidden'); 
+       loaderText.textContent = 'Processing, please wait...'; 
+       previewArea.classList.add('hidden'); 
+       downloadButtons.classList.add('hidden'); 
+       generateBtn.disabled = true; 
+       hideError(); 
+       svgPreview.style.backgroundColor = 'white'; // Reset background
+
+       await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update before heavy work
+
+       // Get all parameters from the UI
+       let params = getParams(); 
+       const mode = modeSelect.value; 
+       const outputWidthMM = parseFloat(outputWidthInput.value); 
+       const outputHeightMM = parseFloat(outputHeightInput.value); 
+       const { width: viewBoxWidth, height: viewBoxHeight } = originalImageData; 
+       
+       // Modes that are computationally expensive and should run in a web worker
+       const workerModes = ['stippling', 'voronoi', 'delaunay', 'tsp-art', 'error-diffusion', 'quadtree-art']; 
+
+       if (workerModes.includes(mode)) { 
+           // Create and configure the web worker
+           const workerScript = document.getElementById('mainWorkerScript').textContent; 
+           const workerBlob = new Blob([workerScript], { type: 'application/javascript' }); 
+           currentWorker = new Worker(URL.createObjectURL(workerBlob)); 
+
+            // Handle mm to px conversion for Quadtree minSize before sending to worker
+            if (mode === 'quadtree-art') {
+                const scale = viewBoxWidth / outputWidthMM;
+                const minSizeInPixels = params.minSize * scale;
+                // Create a copy of params to avoid modifying the UI state
+                params = { ...params, minSize: minSizeInPixels };
+            }
+
+           // Handle messages from the worker
+           currentWorker.onmessage = (e) => { 
+               const { type, result, text } = e.data; 
+               if (type === 'progress') { 
+                   loaderText.textContent = text; 
+               } else if (type === 'error') { 
+                   showError(`Worker error: ${e.data.message}`); 
+                   loader.classList.add('hidden'); 
+                   generateBtn.disabled = false; 
+               } else if (type === 'complete') { 
+                   loaderText.textContent = 'Rendering final SVG...'; 
+                   let svgElements = ''; 
+                   
+                   const scale = viewBoxWidth / outputWidthMM; // px/mm scale
+                   
+                   // --- Render the result from the worker into SVG elements ---
+                   switch(mode) { 
+                       case 'stippling': 
+                           const minDotRadiusPx = (params.minDotSize / 2) * scale; 
+                           const maxDotRadiusPx = (params.maxDotSize / 2) * scale; 
+                           const data = originalImageData.data; 
+                           result.points.forEach(p => { 
+                               const gray = getGrayscale(p[0], p[1], viewBoxWidth, data); 
+                               let intensity = (255 - gray) / 255; 
+                               if (params.invert) intensity = 1 - intensity; 
+                               const r = minDotRadiusPx + (maxDotRadiusPx - minDotRadiusPx) * intensity; 
+                               if(r > 0) svgElements += `<circle cx="${p[0].toFixed(3)}" cy="${p[1].toFixed(3)}" r="${r.toFixed(3)}" fill="black" />`; 
+                           }); 
+                           break; 
+                       case 'voronoi': 
+                           const vStrokePx = params.strokeWidth * scale; 
+                           result.filledPolygons.forEach(({polygon, isFilled}) => { 
+                               if(params.fillType === 'filled' && isFilled){ 
+                                    svgElements += `<path d="${d3.line()(polygon)} Z" fill="black" stroke="none" />`; 
+                               } else if (params.fillType === 'outline') { 
+                                    svgElements += `<path d="${d3.line()(polygon)} Z" fill="none" stroke="black" stroke-width="${vStrokePx.toFixed(3)}"/>`; 
+                               } 
+                           }); 
+                           break; 
+                       case 'delaunay': 
+                            const dStrokePx = params.strokeWidth * scale; 
+                            result.filledTriangles.forEach(({triangle, isFilled}) => { 
+                               if(params.fillType === 'filled' && isFilled){ 
+                                    svgElements += `<path d="${d3.line()(triangle)} Z" fill="black" stroke="none" />`; 
+                               } else if (params.fillType === 'outline') { 
+                                    svgElements += `<path d="${d3.line()(triangle)} Z" fill="none" stroke="black" stroke-width="${dStrokePx.toFixed(3)}"/>`; 
+                               } 
+                           }); 
+                           break; 
+                       case 'tsp-art': 
+                           const spStrokePx = params.strokeWidth * scale; 
+                           svgElements += `<path d="${d3.line()(result.path)}" fill="none" stroke="black" stroke-width="${spStrokePx.toFixed(3)}" />`; 
+                           break; 
+                       case 'error-diffusion': 
+                           const shapeSizePx = params.shapeSize * scale; 
+                           for(let y = 0; y < result.gridHeight; y++) { 
+                               if (params.skipRow && y % 2 !== 0) continue;
+                               for(let x = 0; x < result.gridWidth; x++) { 
+                                   if(result.ditheredGrid[y * result.gridWidth + x] === 0){ 
+                                        if (params.errorShape === 'square') { 
+                                           svgElements += `<rect x="${x * shapeSizePx}" y="${y * shapeSizePx}" width="${shapeSizePx}" height="${shapeSizePx}" fill="black" />`; 
+                                        } else if (params.errorShape === 'circle') { 
+                                           svgElements += `<circle cx="${x * shapeSizePx + shapeSizePx/2}" cy="${y * shapeSizePx + shapeSizePx/2}" r="${shapeSizePx/2}" fill="black" />`; 
+                                        } else if (params.errorShape === 'diamond') { 
+                                           const cx = x * shapeSizePx + shapeSizePx/2; 
+                                           const cy = y * shapeSizePx + shapeSizePx/2; 
+                                           svgElements += `<polygon points="${cx},${cy - shapeSizePx/2} ${cx+shapeSizePx/2},${cy} ${cx},${cy+shapeSizePx/2} ${cx-shapeSizePx/2},${cy}" fill="black" />`; 
+                                        } 
+                                   } 
+                               } 
+                           } 
+                           // Error diffusion uses a different viewBox size based on the grid
+                           const gridViewBoxW = result.gridWidth * shapeSizePx; 
+                           const gridViewBoxH = result.gridHeight * shapeSizePx; 
+                           const finalSvg = buildSvg(svgElements, outputWidthMM, outputHeightMM, gridViewBoxW, gridViewBoxH); 
+                           renderFinalOutput(finalSvg).then(() => { 
+                               loader.classList.add('hidden'); 
+                               previewArea.classList.remove('hidden'); 
+                               generateBtn.disabled = false; 
+                           }); 
+                           return; // Exit early as rendering is handled
+                       case 'quadtree-art':
+                            const qStrokePx = getParams().strokeWidth * scale; // Re-get original params for mm value
+                            result.rects.forEach(r => {
+                                const grayValue = Math.round(getParams().invert ? r.avgColor : 255 - r.avgColor);
+                                const fill = `rgb(${grayValue},${grayValue},${grayValue})`;
+                                if (getParams().fillType === 'solid') {
+                                    svgElements += `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" fill="${fill}" stroke="none" />`;
+                                } else {
+                                    svgElements += `<rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" fill="none" stroke="black" stroke-width="${qStrokePx.toFixed(3)}" />`;
+                                }
+                            });
+                            break;
+                   } 
+                   const finalSvg = buildSvg(svgElements, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight); 
+                   renderFinalOutput(finalSvg).then(() => { 
+                       loader.classList.add('hidden'); 
+                       previewArea.classList.remove('hidden'); 
+                       generateBtn.disabled = false; 
+                   }); 
+               } 
+           }; 
+
+           // Start the worker
+           currentWorker.postMessage({ 
+               mode: mode, 
+               imageData: originalImageData, 
+               params: params, 
+           }); 
+
+       } else { // Modes that run on the main thread
+           let svgContent = ''; 
+           try { 
+                switch (mode) {
+                    case 'halftone':
+                        svgContent = generateHalftone(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+                        break;
+                    case 'modulated-lines':
+                        svgContent = generateModulatedLines(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+                        break;
+                    case 'edge-art':
+                        svgContent = await generateEdgeArt(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+                        break;
+                    case 'vector-trace':
+                        svgContent = await generateVectorTrace(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+                        break;
+                    case 'text-art':
+                        svgContent = await generateTextArt(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+                        break;
+                }
+               await renderFinalOutput(svgContent); 
+           } catch (error) { 
+               console.error('Generation failed:', error); 
+               showError(`An error occurred: ${error.message}`); 
+           } finally { 
+               loader.classList.add('hidden'); 
+               previewArea.classList.remove('hidden'); 
+               generateBtn.disabled = false; 
+           } 
+       } 
+  } 
+
+  // --- Image Handling & Pre-processing --- 
+  // Resets the application state when an image is deleted
+  function deleteImage() { 
+       currentImageObject = null; 
+       originalImageData = null; 
+       uploadedImageFile = null; 
+       imageUpload.value = ''; // Clear the file input
+       cameraUpload.value = ''; 
+       uploadPreviewContainer.classList.add('hidden'); 
+       const ctx = originalCanvas.getContext('2d'); 
+       ctx.clearRect(0, 0, originalCanvas.width, originalCanvas.height); 
+       svgPreview.innerHTML = '<p id="svgPlaceholder" class="text-gray-500">Upload or generate an image to begin.</p>'; 
+       downloadButtons.classList.add('hidden'); 
+       document.getElementById('imageAdjustmentControls').classList.add('hidden'); 
+       document.getElementById('outputSizeControls').classList.add('hidden'); 
+       deleteImageBtn.classList.add('hidden'); 
+       generateBtn.disabled = true; 
+  } 
+
+  // Handles the file selection from upload or camera
+  function handleFileSelect(e) { 
+       const file = e.target.files[0]; 
+       if (!file) return; 
+       hideError(); 
+       uploadedImageFile = file; 
+
+       const reader = new FileReader(); 
+       reader.onload = (event) => { 
+           uploadPreview.src = event.target.result; 
+           uploadPreviewContainer.classList.remove('hidden'); 
+       }; 
+       reader.readAsDataURL(file); 
+  } 
+
+  // Sets the selected file as the main source image for processing
+  function setAsSourceImage(file) { 
+       const img = new Image(); 
+       const objectURL = URL.createObjectURL(file); 
+       img.src = objectURL; 
+       
+       img.onload = () => { 
+           currentImageObject = img; 
+           imageAspectRatio = img.width / img.height; 
+           document.getElementById('imageAdjustmentControls').classList.remove('hidden'); 
+           document.getElementById('outputSizeControls').classList.remove('hidden'); 
+           deleteImageBtn.classList.remove('hidden'); 
+           
+           if (!outputWidthInput.value && !outputHeightInput.value) outputWidthInput.value = 150; 
+           
+           // Trigger input event to sync height and apply adjustments
+           const event = new Event('input', { bubbles: true }); 
+           outputWidthInput.dispatchEvent(event); 
+           
+           generateBtn.disabled = false; 
+           uploadPreviewContainer.classList.add('hidden'); // Hide the temp preview section
+       }; 
+       img.onerror = () => { 
+           showError("Failed to load image file. It might be corrupt or in an unsupported format."); 
+           URL.revokeObjectURL(objectURL); 
+       }; 
+  } 
+
+  /**
+   * Applies brightness/contrast and creates a consistently sized canvas for processing.
+   * This function generates the source canvas with a fixed resolution, decoupling
+   * the source image data from the final output size, which is key for correct scaling.
+   */
+  function applyImageAdjustments() { 
+       if(!currentImageObject) return; 
+
+       const contrast = contrastSlider.value; 
+       const brightness = brightnessSlider.value; 
+       const unsharpAmount = unsharpAmountSlider.value;
+       const unsharpRadius = unsharpRadiusSlider.value;
+       
+       document.getElementById('contrastValue').textContent = `${contrast}%`; 
+       document.getElementById('brightnessValue').textContent = `${brightness}%`; 
+       document.getElementById('unsharpAmountValue').textContent = `${unsharpAmount}%`;
+       document.getElementById('unsharpRadiusValue').textContent = `${parseFloat(unsharpRadius).toFixed(1)}px`;
+       
+       const MAX_PROCESSING_DIM = parseInt(resolutionSelect.value, 10);
+       let processingWidthPX = MAX_PROCESSING_DIM; 
+       let processingHeightPX = MAX_PROCESSING_DIM / imageAspectRatio; 
+
+       if (imageAspectRatio < 1) { // Portrait image
+           processingHeightPX = MAX_PROCESSING_DIM; 
+           processingWidthPX = MAX_PROCESSING_DIM * imageAspectRatio; 
+       } 
+
+       originalCanvas.width = Math.round(processingWidthPX); 
+       originalCanvas.height = Math.round(processingHeightPX); 
+
+       const ctx = originalCanvas.getContext('2d', { willReadFrequently: true }); 
+       ctx.filter = `contrast(${contrast}%) brightness(${brightness}%)`; 
+       ctx.clearRect(0, 0, originalCanvas.width, originalCanvas.height); 
+       ctx.drawImage(currentImageObject, 0, 0, originalCanvas.width, originalCanvas.height); 
+
+        // Apply Unsharp Mask if OpenCV is loaded and amount > 0
+        if (window.cv && typeof cv.GaussianBlur === 'function' && unsharpAmount > 0) {
+            try {
+                let src = cv.matFromImageData(ctx.getImageData(0, 0, originalCanvas.width, originalCanvas.height));
+                let blurred = new cv.Mat();
+                let sharpened = new cv.Mat();
+                
+                // Radius must be an odd number for GaussianBlur
+                let ksize = Math.round(unsharpRadius) * 2 + 1;
+
+                cv.GaussianBlur(src, blurred, new cv.Size(ksize, ksize), 0, 0, cv.BORDER_DEFAULT);
+                
+                // sharpened = original + (original - blurred) * amount
+                // cv.addWeighted(original, 1 + amount, blurred, -amount, 0)
+                const amount = unsharpAmount / 100.0;
+                cv.addWeighted(src, 1 + amount, blurred, -amount, 0, sharpened);
+
+                cv.imshow(originalCanvas, sharpened); // Draw the result back to the canvas
+                src.delete(); blurred.delete(); sharpened.delete();
+            } catch (e) {
+                console.error("OpenCV Unsharp Mask Error: ", e);
+            }
+        }
+
+       originalImageData = ctx.getImageData(0, 0, originalCanvas.width, originalCanvas.height); 
+  } 
+
+  // --- UI Management --- 
+
+  /**
+   * Gets the current parameter values from the UI controls.
+   * @returns {object} An object containing the parameters for the currently selected mode.
+   */
+  function getParams() { 
+       const params = {}; 
+       const mode = modeSelect.value; 
+       const paramDefs = modes[mode] || []; 
+       paramDefs.forEach(p => { 
+           const input = document.getElementById(p.id); 
+           if (input) { 
+               if (p.type === 'checkbox') { 
+                   params[p.id] = input.checked; 
+               } else if (p.type === 'range' || p.type === 'number' || p.id === 'charHeight' || p.id === 'minSize') { 
+                   params[p.id] = parseFloat(input.value); 
+               } else { 
+                   params[p.id] = input.value; 
+               } 
+           } 
+       }); 
+       return params; 
+  } 
+
+  /**
+   * Dynamically builds the UI controls for the selected mode's parameters.
+   */
+  function updateParamsUI() { 
+       const mode = modeSelect.value; 
+       const currentParams = modes[mode] || []; 
+       paramsContainer.innerHTML = ''; // Clear existing params 
+
+       // Checks if a parameter should be visible based on another parameter's value
+       function checkVisibility() { 
+           const allParamDivs = paramsContainer.querySelectorAll('.param-group'); 
+           const currentValues = getParams(); // Get current values to check dependencies
+
+           allParamDivs.forEach(div => { 
+               const id = div.dataset.paramId; 
+               const paramDef = currentParams.find(p => p.id === id); 
+               if(paramDef && paramDef.showIf){ 
+                   const condition = paramDef.showIf; 
+                   if (currentValues[condition.id] === condition.value) { 
+                       div.classList.remove('hidden'); 
+                   } else { 
+                       div.classList.add('hidden'); 
+                   } 
+               } 
+           }); 
+       } 
+
+       // Create the UI element for each parameter
+       currentParams.forEach(param => { 
+           const wrapper = document.createElement('div'); 
+           wrapper.className = 'param-group'; 
+           wrapper.dataset.paramId = param.id; 
+
+           const label = document.createElement('label'); 
+           label.htmlFor = param.id; 
+           label.className = 'block text-sm font-medium text-gray-700 mb-1'; 
+           label.textContent = param.name; 
+           wrapper.appendChild(label); 
+
+           if (param.type === 'select') { 
+               const select = document.createElement('select'); 
+               select.id = param.id; 
+               select.className = 'w-full p-2 text-sm border-gray-300 rounded-md'; 
+               param.options.forEach(opt => { 
+                   const option = document.createElement('option'); 
+                   option.value = opt; 
+                   option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1); 
+                   select.appendChild(option); 
+               }); 
+               if (param.value) select.value = param.value; 
+               select.addEventListener('change', checkVisibility); 
+               wrapper.appendChild(select); 
+           } else if (param.type === 'range') { 
+               const rangeWrapper = document.createElement('div'); 
+               rangeWrapper.className = 'flex items-center gap-2'; 
+               const input = document.createElement('input'); 
+               input.type = 'range'; 
+               input.id = param.id; 
+               Object.assign(input, { min: param.min, max: param.max, value: param.value, step: param.step || 1 }); 
+               const valueSpan = document.createElement('span'); 
+               valueSpan.className = 'text-sm font-semibold text-blue-600 w-16 text-right'; 
+               valueSpan.textContent = `${param.value}${param.unit || ''}`; 
+               input.oninput = () => { valueSpan.textContent = `${input.value}${param.unit || ''}`; }; 
+               rangeWrapper.appendChild(input); 
+               rangeWrapper.appendChild(valueSpan); 
+               wrapper.appendChild(rangeWrapper); 
+           } else if (param.type === 'checkbox') { 
+               const checkboxWrapper = document.createElement('div'); 
+               checkboxWrapper.className = 'flex items-center'; 
+               const input = document.createElement('input'); 
+               input.type = 'checkbox'; 
+               input.id = param.id; 
+               input.checked = param.value || false; 
+               input.className = 'h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500'; 
+               checkboxWrapper.appendChild(input); 
+               const checkboxLabel = document.createElement('label'); 
+               checkboxLabel.htmlFor = param.id; 
+               checkboxLabel.className = 'ml-2 block text-sm text-gray-900'; 
+               checkboxLabel.textContent = 'Enable'; 
+               checkboxWrapper.appendChild(checkboxLabel); 
+               wrapper.appendChild(checkboxWrapper); 
+           } else if (param.type === 'textarea') { 
+                const input = document.createElement('textarea'); 
+                input.id = param.id; 
+                input.className = 'w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition resize-y'; 
+                input.rows = 3; 
+                input.value = param.value; 
+                wrapper.appendChild(input); 
+           } 
+           paramsContainer.appendChild(wrapper); 
+       }); 
+
+       checkVisibility(); // Initial check for conditional parameters
+  } 
+
+
+  // --- Event Listeners & Initial Setup --- 
+  imageUpload.addEventListener('change', handleFileSelect); 
+  cameraUpload.addEventListener('change', handleFileSelect); 
+  useOriginalBtn.addEventListener('click', () => { if(uploadedImageFile) setAsSourceImage(uploadedImageFile) }); 
+  generateAiFromUploadBtn.addEventListener('click', generateAiFromUpload); 
+  modeSelect.addEventListener('change', updateParamsUI); 
+  generateBtn.addEventListener('click', generate); 
+  
+  // This listener now includes the necessary prompt enhancement step, but does it
+  // "silently" without changing the text in the prompt box.
+  generateImageBtn.addEventListener('click', async () => {
+      const userPrompt = textPrompt.value;
+      if (!userPrompt || userPrompt.trim() === '') {
+          showError("Please enter a prompt to generate an image.");
+          return;
+      }
+
+      try {
+          // First, get an enhanced prompt from Gemini. This is the step that was
+          // missing and likely causing the 401 error. This happens "silently"
+          // and does not update the user's text in the prompt box.
+          const enhancedPrompt = await generatePromptWithGemini(userPrompt, 'scene');
+
+          // Then, generate the image using the enhanced prompt.
+          // Because we modified generateImageFromText, this will also not
+          // update the prompt box, preserving the user's original text.
+          await generateImageFromText(enhancedPrompt);
+      } catch (e) {
+          // The called functions should handle their own errors and UI state,
+          // but we add a catch here as a fallback.
+          showError(e.message);
+          loader.classList.add('hidden');
+          generateImageBtn.disabled = false;
+          generateBtn.disabled = !currentImageObject;
+      }
+  });
+
+  randomSceneBtn.addEventListener('click', async () => {
+    const randomSeed = randomScenePrompts[Math.floor(Math.random() * randomScenePrompts.length)];
+    loader.classList.remove('hidden');
+    try {
+        const finalPrompt = await generatePromptWithGemini(randomSeed, 'scene');
+        await generateImageFromText(finalPrompt);
+    } catch (e) {
+        showError(e.message);
+        loader.classList.add('hidden');
+        generateImageBtn.disabled = false;
+    }
+  });
+
+  randomPatternBtn.addEventListener('click', async () => {
+    loader.classList.remove('hidden');
+    try {
+        const finalPrompt = await generatePromptWithGemini("an abstract pattern", 'pattern');
+        await generateImageFromText(finalPrompt);
+    } catch (e) {
+        showError(e.message);
+        loader.classList.add('hidden');
+        generateImageBtn.disabled = false;
+    }
+  });
+
+  aiCompleteBtn.addEventListener('click', async () => { if(textPrompt.value.trim()) { try { const p = await generatePromptWithGemini(textPrompt.value, 'scene'); textPrompt.value = p; } catch (e) { showError(e.message); } }}); 
+  downloadSVG.addEventListener('click', () => downloadFile('output.svg', lastGeneratedSVGContent, 'image/svg+xml')); 
+  
+  // Link output width and height inputs to maintain aspect ratio
+  [outputWidthInput, outputHeightInput].forEach(input => { 
+       input.addEventListener('input', (e) => { 
+           if(!imageAspectRatio || imageAspectRatio === 0) return; 
+           const targetId = e.target.id; 
+           const value = parseFloat(e.target.value); 
+           if (isNaN(value) || value <= 0) return; 
+
+           if (targetId === 'outputWidth') { 
+               outputHeightInput.value = (value / imageAspectRatio).toFixed(2); 
+           } else { 
+               outputWidthInput.value = (value * imageAspectRatio).toFixed(2); 
+           } 
+           if(currentImageObject) { 
+               applyImageAdjustments(); 
+           } 
+       }); 
+  }); 
+  
+  // Apply image adjustments in real-time when sliders or resolution are moved
+  [contrastSlider, brightnessSlider, resolutionSelect, unsharpAmountSlider, unsharpRadiusSlider].forEach(control => { 
+       control.addEventListener('input', () => { 
+           if(currentImageObject) { 
+               applyImageAdjustments(); 
+           } 
+       }); 
+  }); 
+
+  // Toggle between split-view and full-view preview
+  togglePreviewBtn.addEventListener('click', () => { 
+       const isFullPreview = originalCanvasContainer.classList.contains('hidden'); 
+       const svgParent = svgPreview.parentElement; 
+       if (isFullPreview) { 
+           // Switch to Split View 
+           originalCanvasContainer.classList.remove('hidden'); 
+           previewArea.classList.replace('md:grid-cols-1', 'md:grid-cols-2'); 
+           svgParent.classList.remove('lg:col-span-2'); 
+           togglePreviewBtn.textContent = 'Full Preview'; 
+       } else { 
+           // Switch to Full Preview 
+           originalCanvasContainer.classList.add('hidden'); 
+           previewArea.classList.replace('md:grid-cols-2', 'md:grid-cols-1'); 
+           svgParent.classList.add('lg:col-span-2'); 
+           togglePreviewBtn.textContent = 'Split View'; 
+       } 
+  }); 
+
+  // Utility button event listeners
+  clearPromptBtn.addEventListener('click', () => { textPrompt.value = ''; }); 
+  copyPromptBtn.addEventListener('click', () => { 
+       if (textPrompt.value) { 
+           const tempTextArea = document.createElement('textarea'); 
+           tempTextArea.value = textPrompt.value; 
+           document.body.appendChild(tempTextArea); 
+           tempTextArea.select(); 
+           try { 
+               // Use execCommand as a fallback for clipboard access
+               document.execCommand('copy'); 
+           } catch (err) { 
+               showError('Failed to copy text.'); 
+           } 
+           document.body.removeChild(tempTextArea); 
+       } 
+  }); 
+  deleteImageBtn.addEventListener('click', deleteImage); 
+
+  // --- Fullscreen Modal Logic ---
+  let isPanning = false;
+  let startX, startY, transformX = 0, transformY = 0, scale = 1;
+
+  function openFullscreen() {
+    if (!lastGeneratedSVGContent) return;
+    fullscreenSvgContainer.innerHTML = lastGeneratedSVGContent;
+    const svg = fullscreenSvgContainer.querySelector('svg');
+    // Reset pan and zoom state
+    transformX = 0;
+    transformY = 0;
+    scale = 1;
+    svg.style.transform = `translate(${transformX}px, ${transformY}px) scale(${scale})`;
+    fullscreenModal.classList.remove('hidden');
+  }
+
+  function closeFullscreen() {
+    fullscreenModal.classList.add('hidden');
+    fullscreenSvgContainer.innerHTML = '';
+  }
+
+  fullscreenBtn.addEventListener('click', openFullscreen);
+  closeFullscreenBtn.addEventListener('click', closeFullscreen);
+
+  // Handle mouse down for panning
+  fullscreenModal.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    isPanning = true;
+    startX = e.clientX - transformX;
+    startY = e.clientY - transformY;
+    fullscreenSvgContainer.classList.add('panning');
+  });
+
+  // Handle mouse up/leave to stop panning
+  fullscreenModal.addEventListener('mouseup', () => {
+    isPanning = false;
+    fullscreenSvgContainer.classList.remove('panning');
+  });
+
+  fullscreenModal.addEventListener('mouseleave', () => {
+    isPanning = false;
+    fullscreenSvgContainer.classList.remove('panning');
+  });
+
+  // Handle mouse move to pan the SVG
+  fullscreenModal.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    e.preventDefault();
+    transformX = e.clientX - startX;
+    transformY = e.clientY - startY;
+    const svg = fullscreenSvgContainer.querySelector('svg');
+    if (svg) {
+        svg.style.transform = `translate(${transformX}px, ${transformY}px) scale(${scale})`;
+    }
+  });
+
+  // Handle mouse wheel to zoom the SVG
+  fullscreenModal.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const svg = fullscreenSvgContainer.querySelector('svg');
+    if (!svg) return;
+
+    const scaleAmount = 0.1;
+    const rect = svg.getBoundingClientRect();
+    
+    // Calculate mouse position relative to the SVG
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const oldScale = scale;
+    if (e.deltaY < 0) { // Zoom in
+        scale += scaleAmount;
+    } else { // Zoom out
+        scale = Math.max(0.1, scale - scaleAmount);
+    }
+    
+    // Adjust translate to zoom towards the mouse pointer
+    transformX = mouseX - (mouseX - transformX) * (scale / oldScale);
+    transformY = mouseY - (mouseY - transformY) * (scale / oldScale);
+    
+    svg.style.transform = `translate(${transformX}px, ${transformY}px) scale(${scale})`;
+  });
+
+  // Initialize the app on window load
+  window.onload = () => { 
+       updateParamsUI(); 
+       generateBtn.disabled = true; 
+  }; 
+  </script> 
+
+  </body> 
+  </html>
+
+<script id="vp-enhance-js">
+(() => {
+  const toast=(msg)=>{const t=document.getElementById('vpToast'); if(!t) return; t.textContent=msg; t.style.display='block'; clearTimeout(toast._tm); toast._tm=setTimeout(()=>t.style.display='none',2200);};
+  const $ = (id)=>document.getElementById(id);
+  const appIds=['modeSelect','contrast','brightness','unsharpAmount','unsharpRadius','resolutionSelect','outputWidth','outputHeight','detailLevel','shadingStyle','generationStyle','aspectRatio','textPrompt'];
+  const getState=()=>Object.fromEntries(appIds.map(id=>[id,$(id)?.value ?? null]));
+  const setState=(state)=>{Object.entries(state||{}).forEach(([id,v])=>{const el=$(id); if(el && v!=null){el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true}));}});};
+  const themeKey='vp_theme_dark';
+  if(localStorage.getItem(themeKey)!=='0') document.body.classList.add('vp-dark');
+  $('vpThemeToggle')?.addEventListener('click',()=>{document.body.classList.toggle('vp-dark'); localStorage.setItem(themeKey, document.body.classList.contains('vp-dark') ? '1' : '0');});
+  const presetKey='vp_preset_v1';
+  $('vpSavePreset')?.addEventListener('click',()=>{localStorage.setItem(presetKey, JSON.stringify(getState())); toast('Preset saved');});
+  $('vpLoadPreset')?.addEventListener('click',()=>{const raw=localStorage.getItem(presetKey); if(!raw) return toast('No preset saved'); try{setState(JSON.parse(raw)); toast('Preset loaded');}catch{toast('Preset broken');}});
+  $('vpExportPreset')?.addEventListener('click',()=>{const blob=new Blob([JSON.stringify(getState(),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='vector-pro-preset.json'; a.click(); URL.revokeObjectURL(a.href);});
+  $('vpImportPreset')?.addEventListener('click',()=>$('vpPresetFile')?.click());
+  $('vpPresetFile')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0]; if(!f) return; try{const txt=await f.text(); setState(JSON.parse(txt)); toast('Preset imported');}catch{toast('Invalid JSON preset');}});
+  document.addEventListener('keydown',(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='g'){e.preventDefault(); $('generateBtn')?.click();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault(); $('downloadSVG')?.click();}});
+})();
+</script>
+</body>
+</html>
