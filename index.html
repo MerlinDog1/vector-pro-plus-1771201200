@@ -1509,25 +1509,18 @@ const modes = {
   Create the prompt now.`; 
        } 
        
-       const payload = { contents: [{ parts: [] }] }; 
-       payload.contents[0].parts.push({ "text": promptInstructions }); 
-       
-       // If an image is provided, convert it to base64 and add to the payload
-       if (imageFile) { 
-           const base64Data = await new Promise((resolve, reject) => { 
-               const reader = new FileReader(); 
-               reader.onloadend = () => resolve(reader.result.split(',')[1]); 
-               reader.onerror = reject; 
-               reader.readAsDataURL(imageFile); 
-           }); 
-           payload.contents[0].parts.push({ "inlineData": { "mimeType": imageFile.type, "data": base64Data } }); 
-       } 
-
-       const apiKey = "";  // API key is left empty and will be injected by the environment
-       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`; 
+       const apiUrl = 'https://wbtpizrlayiedgwrtpwl.functions.supabase.co/gemini-proxy';
 
        try { 
-           const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+           const response = await fetch(apiUrl, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               task: 'text',
+               prompt: promptInstructions,
+               model: 'gemini-2.5-flash'
+             })
+           });
            const responseBody = await response.text(); 
            
            if (!response.ok) { 
@@ -1535,14 +1528,14 @@ const modes = {
                 let errorMessage = `API returned status ${response.status}.`; 
                 try {  
                     const errorJson = JSON.parse(responseBody); 
-                    errorMessage = errorJson.error?.message || errorMessage; 
+                    errorMessage = errorJson.error || errorJson.error?.message || errorMessage; 
                 } catch (e) { /* Ignore parsing error */ } 
                 throw new Error(errorMessage); 
            } 
            
            const result = JSON.parse(responseBody); 
-           if (result.candidates?.[0]?.content?.parts?.[0]?.text) { 
-               return result.candidates[0].content.parts[0].text; 
+           if (result.text) { 
+               return result.text; 
            } else {  
                throw new Error('The AI did not return a valid prompt.'); 
            } 
@@ -1574,12 +1567,18 @@ const modes = {
         const styleText = stylePrompts[styleValue] || '';
 
         const fullPrompt = `${prompt}, an image in the style of ${shadingValue}${styleText}, with ${detailValue}, fine lines, vector art style, high contrast, clean sketch`;
-        const payload = { instances: [{ prompt: fullPrompt }], parameters: { "sampleCount": 1, "aspectRatio": aspectRatio } };
-        const apiKey = ""; // API key is left empty and will be injected by the environment
-        
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+        const apiUrl = 'https://wbtpizrlayiedgwrtpwl.functions.supabase.co/gemini-proxy';
 
-        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: 'image',
+            prompt: fullPrompt,
+            imageModel: 'imagen-4.0-fast-generate-001',
+            aspectRatio
+          })
+        });
         const responseBody = await response.text();
 
         if (!response.ok) {
@@ -1587,7 +1586,7 @@ const modes = {
             let errorMessage = `API returned status ${response.status}.`;
             try {
                 const errorJson = JSON.parse(responseBody);
-                errorMessage = errorJson.error?.message || errorMessage;
+                errorMessage = errorJson.error || errorJson.error?.message || errorMessage;
             } catch (e) {
                 if (responseBody && responseBody.length < 500) {
                     errorMessage = responseBody;
@@ -1597,8 +1596,8 @@ const modes = {
         }
 
         const result = JSON.parse(responseBody);
-        if (result.predictions?.[0]?.bytesBase64Encoded) {
-            const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+        if (result.bytesBase64Encoded) {
+            const imageUrl = `data:image/png;base64,${result.bytesBase64Encoded}`;
             const blob = await fetch(imageUrl).then(res => res.blob());
             const file = new File([blob], "generated_image.png", { type: "image/png" });
             setAsSourceImage(file);
