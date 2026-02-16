@@ -322,18 +322,32 @@ body.vp-dark #vpActionBar .vp-ghost{border-color:#46639f;color:var(--vp-text)}
                         </div>
                         <div>
                             <label for="resolutionSelect" class="block text-sm font-medium text-gray-700">Processing Resolution</label>
-	                            <select id="resolutionSelect" class="w-full p-2 mt-1 text-sm border-gray-300 rounded-md">
-	                                <option value="512">512px (Stable)</option>
-	                                <option value="1024" selected>1024px (Recommended)</option>
-	                                <option value="2048">2048px (High Quality)</option>
-	                                <option value="4096">4096px (Very High - Slow)</option>
-	                                <option value="8192">8192px (Extreme - Unstable)</option>
-	                            </select>
-	                            <p class="text-xs text-gray-500 mt-1">Higher resolutions provide more detail but are much slower and may crash the browser.</p>
-	                        </div>
-	                    </div>
-	                    </div>
-	                </details>
+		                            <select id="resolutionSelect" class="w-full p-2 mt-1 text-sm border-gray-300 rounded-md">
+		                                <option value="512">512px (Stable)</option>
+		                                <option value="1024" selected>1024px (Recommended)</option>
+		                                <option value="2048">2048px (High Quality)</option>
+		                                <option value="4096">4096px (Very High - Slow)</option>
+		                                <option value="8192">8192px (Extreme - Unstable)</option>
+		                            </select>
+		                            <p class="text-xs text-gray-500 mt-1">Higher resolutions provide more detail but are much slower and may crash the browser.</p>
+		                        </div>
+		                        <div class="p-3 rounded-lg border border-gray-200 bg-gray-50">
+		                            <div class="flex items-center justify-between gap-3">
+		                                <label for="inputBwClamp" class="text-sm font-bold text-gray-700">Strict Pure B/W Clamp (Input)</label>
+		                                <input id="inputBwClamp" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+		                            </div>
+		                            <div id="inputBwThresholdWrap" class="mt-2">
+		                                <label for="inputBwThreshold" class="block text-xs font-bold text-gray-600">Threshold</label>
+		                                <div class="flex items-center gap-2 mt-1">
+		                                    <input type="range" id="inputBwThreshold" min="0" max="255" value="128" class="w-full">
+		                                    <span id="inputBwThresholdValue" class="text-sm font-semibold text-blue-600 w-12 text-right">128</span>
+		                                </div>
+		                            </div>
+		                            <p class="text-xs text-gray-500 mt-2">Forces the processing image to pure black or white. Useful for laser/CNC threshold workflows.</p>
+		                        </div>
+		                    </div>
+		                    </div>
+		                </details>
 
 	                <details id="outputSizeControls" class="vp-acc mb-4 hidden" open>
 	                    <summary>
@@ -372,21 +386,65 @@ body.vp-dark #vpActionBar .vp-ghost{border-color:#46639f;color:var(--vp-text)}
 	                    </div>
 	                </details>
 
-	                <details class="vp-acc mb-4" open>
-	                    <summary>
-	                        <span>6. Parameters</span>
-	                        <span class="vp-chevron" aria-hidden="true"></span>
-	                    </summary>
-	                    <div class="vp-acc-body control-group pl-4 py-2">
-	                    <div id="paramsContainer" class="space-y-4"></div>
-	                    </div>
-	                </details>
+		                <details class="vp-acc mb-4" open>
+		                    <summary>
+		                        <span>6. Parameters</span>
+		                        <span class="vp-chevron" aria-hidden="true"></span>
+		                    </summary>
+		                    <div class="vp-acc-body control-group pl-4 py-2">
+		                    <div id="paramsContainer" class="space-y-4"></div>
+		                    </div>
+		                </details>
 
-	                <div class="mt-8">
-	                     <button id="generateBtn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition duration-300 ease-in-out disabled:bg-gray-400">
-	                        Convert to Vector
-	                    </button>
-	                </div>
+		                <details class="vp-acc mb-4" open>
+		                    <summary>
+		                        <span>7. SVG Export</span>
+		                        <span class="vp-chevron" aria-hidden="true"></span>
+		                    </summary>
+		                    <div class="vp-acc-body control-group pl-4 py-2">
+		                        <div class="space-y-3">
+		                            <label class="flex items-center justify-between gap-3 text-sm font-bold text-gray-700">
+		                                <span>Optimize SVG (smaller)</span>
+		                                <input id="svgOptimize" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked>
+		                            </label>
+		                            <label class="flex items-center justify-between gap-3 text-sm font-bold text-gray-700">
+		                                <span>Minify Whitespace</span>
+		                                <input id="svgMinify" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked>
+		                            </label>
+		                            <label class="flex items-center justify-between gap-3 text-sm font-bold text-gray-700">
+		                                <span>Omit White Shapes</span>
+		                                <input id="svgOmitWhite" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" checked>
+		                            </label>
+		                            <div>
+		                                <label for="svgPrecision" class="block text-xs font-bold text-gray-600">Coordinate Precision</label>
+		                                <div class="flex items-center gap-2 mt-1">
+		                                    <input type="range" id="svgPrecision" min="0" max="4" value="3" step="1" class="w-full">
+		                                    <span id="svgPrecisionValue" class="text-sm font-semibold text-blue-600 w-12 text-right">3</span>
+		                                </div>
+		                            </div>
+		                            <div class="p-3 rounded-lg border border-gray-200 bg-gray-50">
+		                                <label class="flex items-center justify-between gap-3 text-sm font-bold text-gray-700">
+		                                    <span>Strict Pure B/W Clamp (Output)</span>
+		                                    <input id="svgBwClamp" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+		                                </label>
+		                                <div id="svgBwThresholdWrap" class="mt-2">
+		                                    <label for="svgBwThreshold" class="block text-xs font-bold text-gray-600">Threshold</label>
+		                                    <div class="flex items-center gap-2 mt-1">
+		                                        <input type="range" id="svgBwThreshold" min="0" max="255" value="128" class="w-full">
+		                                        <span id="svgBwThresholdValue" class="text-sm font-semibold text-blue-600 w-12 text-right">128</span>
+		                                    </div>
+		                                </div>
+		                                <p class="text-xs text-gray-500 mt-2">Forces exported SVG fills/strokes to pure black or none. White geometry is omitted when enabled.</p>
+		                            </div>
+		                        </div>
+		                    </div>
+		                </details>
+
+		                <div class="mt-8">
+		                     <button id="generateBtn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition duration-300 ease-in-out disabled:bg-gray-400">
+		                        Convert to Vector
+		                    </button>
+		                </div>
 	            </div>
 
             <div class="lg:col-span-9 bg-white p-6 rounded-2xl shadow-lg">
@@ -418,6 +476,16 @@ body.vp-dark #vpActionBar .vp-ghost{border-color:#46639f;color:var(--vp-text)}
                              <p id="svgPlaceholder" class="text-gray-500">Upload or generate an image to begin.</p>
 	        </div>
 	    </div>
+	                 </div>
+
+	                 <div id="downloadButtons" class="mt-8 text-center hidden">
+                     <a id="downloadSVG" class="inline-block bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300 mr-4">Download SVG</a>
+                     <a id="downloadDXF" class="inline-block bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition duration-300">Download DXF</a>
+                     <button id="fullscreenBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition duration-300">Fullscreen</button>
+                 </div>
+            </div>
+	        </div>
+	    </div>
 
 	    <!-- Mobile sticky actions -->
 	    <div id="vpActionBar" class="md:hidden">
@@ -432,21 +500,11 @@ body.vp-dark #vpActionBar .vp-ghost{border-color:#46639f;color:var(--vp-text)}
 	            <button id="vpActionTogglePreview" type="button" class="vp-ghost">Split</button>
 	        </div>
 	    </div>
-                 </div>
 
-                 <div id="downloadButtons" class="mt-8 text-center hidden">
-                     <a id="downloadSVG" class="inline-block bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition duration-300 mr-4">Download SVG</a>
-                     <a id="downloadDXF" class="inline-block bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition duration-300">Download DXF</a>
-                     <button id="fullscreenBtn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition duration-300">Fullscreen</button>
-                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="fullscreenModal" class="hidden fixed inset-0 z-50">
-        <div id="fullscreenSvgContainer" class="w-full h-full"></div>
-        <button id="closeFullscreenBtn" class="absolute top-4 right-4 text-white text-4xl font-bold hover:text-gray-300">&times;</button>
-    </div>
+	    <div id="fullscreenModal" class="hidden fixed inset-0 z-50">
+	        <div id="fullscreenSvgContainer" class="w-full h-full"></div>
+	        <button id="closeFullscreenBtn" class="absolute top-4 right-4 text-white text-4xl font-bold hover:text-gray-300">&times;</button>
+	    </div>
 
 <script id="mainWorkerScript" type="javascript/worker">
     // This script runs in a separate thread to avoid freezing the UI.
@@ -795,12 +853,25 @@ const brightnessSlider = document.getElementById('brightness');
 const unsharpAmountSlider = document.getElementById('unsharpAmount');
 const unsharpRadiusSlider = document.getElementById('unsharpRadius');
 const resolutionSelect = document.getElementById('resolutionSelect');
+const inputBwClamp = document.getElementById('inputBwClamp');
+const inputBwThreshold = document.getElementById('inputBwThreshold');
+const inputBwThresholdWrap = document.getElementById('inputBwThresholdWrap');
 const togglePreviewBtn = document.getElementById('togglePreviewBtn');
 const errorDisplay = document.getElementById('errorDisplay');
 const fullscreenModal = document.getElementById('fullscreenModal');
 const fullscreenSvgContainer = document.getElementById('fullscreenSvgContainer');
 const closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+// SVG export controls
+const svgOptimize = document.getElementById('svgOptimize');
+const svgMinify = document.getElementById('svgMinify');
+const svgOmitWhite = document.getElementById('svgOmitWhite');
+const svgPrecision = document.getElementById('svgPrecision');
+const svgPrecisionValue = document.getElementById('svgPrecisionValue');
+const svgBwClamp = document.getElementById('svgBwClamp');
+const svgBwThreshold = document.getElementById('svgBwThreshold');
+const svgBwThresholdWrap = document.getElementById('svgBwThresholdWrap');
 
 // Mobile sticky actions
 const controlsPanel = document.getElementById('controlsPanel');
@@ -816,6 +887,7 @@ let currentImageObject = null; // Store the image object for the main canvas
 let uploadedImageFile = null; // Store the raw uploaded file
 let imageAspectRatio = 1;
 let lastGeneratedSVGContent = '';
+let lastGeneratedSVGContentRaw = '';
 let currentWorker = null;
 
 // --- Mode Parameter Definitions ---
@@ -1180,21 +1252,196 @@ const modes = {
   }
 
 
-  /**
-   * Renders the final SVG content to the preview area and sets up download buttons.
-   * @param {string} svgContent - The final SVG string to render.
-   */
-  async function renderFinalOutput(svgContent) {
-       lastGeneratedSVGContent = svgContent;
-       svgPreview.innerHTML = svgContent;
-       downloadButtons.classList.remove('hidden');
+	  /**
+	   * Renders the final SVG content to the preview area and sets up download buttons.
+	   * @param {string} svgContent - The final SVG string to render.
+	   */
+	  function getSvgExportOptions() {
+	       const precision = Math.max(0, Math.min(4, parseInt(svgPrecision?.value || '3', 10)));
+	       const bwThr = Math.max(0, Math.min(255, parseInt(svgBwThreshold?.value || '128', 10)));
+	       const optimize = svgOptimize?.checked !== false;
+	       return {
+	            optimize,
+	            minify: optimize && svgMinify?.checked !== false,
+	            omitWhite: optimize && svgOmitWhite?.checked !== false,
+	            precision,
+	            bwClamp: !!svgBwClamp?.checked,
+	            bwThreshold: bwThr,
+	       };
+	  }
 
-       try {
-           const dxf = await generateDxfFromSvg(svgContent);
-            if (dxf) {
-                downloadDXF.onclick = () => downloadFile('output.dxf', dxf.toString(), 'application/dxf');
-                downloadDXF.style.display = 'inline-block';
-            } else {
+	  function syncExportControlsUI() {
+	       const optimizeOn = svgOptimize?.checked !== false;
+	       if (svgMinify) svgMinify.disabled = !optimizeOn;
+	       if (svgOmitWhite) svgOmitWhite.disabled = !optimizeOn;
+	       if (svgPrecision) svgPrecision.disabled = !optimizeOn;
+	       if (svgPrecisionValue) {
+	            svgPrecisionValue.textContent = String(parseInt(svgPrecision?.value || '3', 10));
+	            svgPrecisionValue.style.opacity = optimizeOn ? '1' : '0.5';
+	       }
+	       if (svgBwThresholdWrap) svgBwThresholdWrap.style.display = svgBwClamp?.checked ? 'block' : 'none';
+	  }
+
+	  function parseColorToGray(color) {
+	       if (!color) return null;
+	       const c = String(color).trim().toLowerCase();
+	       if (c === 'none') return null;
+	       if (c === 'black' || c === '#000' || c === '#000000') return 0;
+	       if (c === 'white' || c === '#fff' || c === '#ffffff') return 255;
+	       const rgb = c.match(/^rgba?\(([^)]+)\)$/);
+	       if (rgb) {
+	           const parts = rgb[1].split(',').map((s) => s.trim());
+	           const r = parseFloat(parts[0]);
+	           const g = parseFloat(parts[1]);
+	           const b = parseFloat(parts[2]);
+	           if ([r, g, b].every((n) => Number.isFinite(n))) {
+	               return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+	           }
+	       }
+	       const hex = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+	       if (hex) {
+	           const h = hex[1];
+	           const r = parseInt(h.length === 3 ? h[0] + h[0] : h.slice(0, 2), 16);
+	           const g = parseInt(h.length === 3 ? h[1] + h[1] : h.slice(2, 4), 16);
+	           const b = parseInt(h.length === 3 ? h[2] + h[2] : h.slice(4, 6), 16);
+	           return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+	       }
+	       return null;
+	  }
+
+	  function roundNumberToken(token, decimals) {
+	       const n = Number(token);
+	       if (!Number.isFinite(n)) return token;
+	       const out = decimals === 0 ? String(Math.round(n)) : String(Number(n.toFixed(decimals)));
+	       return out === '-0' ? '0' : out;
+	  }
+
+	  function roundNumbersInString(s, decimals) {
+	       if (!s) return s;
+	       return String(s).replace(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi, (m) => roundNumberToken(m, decimals));
+	  }
+
+	  function postProcessSvg(svgString) {
+	       const opts = getSvgExportOptions();
+	       if (svgPrecisionValue) svgPrecisionValue.textContent = String(opts.precision);
+	       if (svgBwThresholdWrap) svgBwThresholdWrap.style.display = (opts.bwClamp ? 'block' : 'none');
+	       const bwLabel = document.getElementById('svgBwThresholdValue');
+	       if (bwLabel) bwLabel.textContent = String(opts.bwThreshold);
+
+	       const shouldTouch =
+	            opts.bwClamp || opts.optimize || opts.precision !== 3 || opts.minify || opts.omitWhite;
+	       if (!shouldTouch) return svgString;
+
+	       try {
+	           const parser = new DOMParser();
+	           const doc = parser.parseFromString(svgString, 'image/svg+xml');
+	           const svgEl = doc.documentElement;
+	           if (!svgEl || svgEl.nodeName.toLowerCase() !== 'svg') return svgString;
+
+	           const removeQueue = [];
+	           const nodes = svgEl.querySelectorAll('*');
+	           nodes.forEach((node) => {
+	               // Clamp/omit colors.
+	               const fill = node.getAttribute('fill');
+	               const stroke = node.getAttribute('stroke');
+	               const hasStroke = stroke && stroke !== 'none';
+	               const fillGray = parseColorToGray(fill);
+
+	               if (opts.bwClamp) {
+	                   if (fill && fill !== 'none') {
+	                       const isWhite = fillGray != null ? fillGray >= opts.bwThreshold : false;
+	                       if (isWhite && !hasStroke) {
+	                           removeQueue.push(node);
+	                       } else {
+	                           node.setAttribute('fill', isWhite ? 'white' : 'black');
+	                       }
+	                   }
+	                   if (hasStroke) node.setAttribute('stroke', 'black');
+	                   node.removeAttribute('fill-opacity');
+	                   node.removeAttribute('stroke-opacity');
+	                   node.removeAttribute('opacity');
+	               } else if (opts.omitWhite) {
+	                   const isWhite = fillGray != null && fillGray >= 250;
+	                   if (isWhite && !hasStroke) removeQueue.push(node);
+	               }
+
+	               // Round numeric geometry (avoid touching ids/urls).
+	               const tag = node.tagName ? node.tagName.toLowerCase() : '';
+	               if (opts.optimize) {
+	                   const attrs = [
+	                        'x',
+	                        'y',
+	                        'cx',
+	                        'cy',
+	                        'r',
+	                        'x1',
+	                        'y1',
+	                        'x2',
+	                        'y2',
+	                        'width',
+	                        'height',
+	                        'rx',
+	                        'ry',
+	                        'stroke-width',
+	                        'font-size',
+	                        'viewBox',
+	                        'points',
+	                        'transform',
+	                   ];
+	                   attrs.forEach((a) => {
+	                       const v = node.getAttribute(a);
+	                       if (v) node.setAttribute(a, roundNumbersInString(v, opts.precision));
+	                   });
+	                   if (tag === 'path') {
+	                       const d = node.getAttribute('d');
+	                       if (d) node.setAttribute('d', roundNumbersInString(d, opts.precision));
+	                   }
+	               }
+	           });
+
+	           removeQueue.forEach((n) => n.remove());
+	           let out = new XMLSerializer().serializeToString(svgEl);
+	           if (opts.minify) out = out.replace(/>\s+</g, '><').trim();
+	           return out;
+	       } catch (e) {
+	           console.warn('SVG post-processing failed:', e);
+	           return svgString;
+	       }
+	  }
+
+	  async function rerenderExportFromRaw() {
+	       if (!lastGeneratedSVGContentRaw) return;
+	       const processed = postProcessSvg(lastGeneratedSVGContentRaw);
+	       lastGeneratedSVGContent = processed;
+	       svgPreview.innerHTML = processed;
+	       downloadButtons.classList.remove('hidden');
+	       try {
+	           const dxf = await generateDxfFromSvg(processed);
+	           if (dxf) {
+	               downloadDXF.onclick = () => downloadFile('output.dxf', dxf.toString(), 'application/dxf');
+	               downloadDXF.style.display = 'inline-block';
+	           } else {
+	               downloadDXF.style.display = 'none';
+	           }
+	       } catch {
+	           downloadDXF.style.display = 'none';
+	       }
+	       syncActionBarState();
+	  }
+
+	  async function renderFinalOutput(svgContent) {
+	       lastGeneratedSVGContentRaw = svgContent;
+	       const processed = postProcessSvg(svgContent);
+	       lastGeneratedSVGContent = processed;
+	       svgPreview.innerHTML = processed;
+	       downloadButtons.classList.remove('hidden');
+
+	       try {
+	           const dxf = await generateDxfFromSvg(processed);
+	            if (dxf) {
+	                downloadDXF.onclick = () => downloadFile('output.dxf', dxf.toString(), 'application/dxf');
+	                downloadDXF.style.display = 'inline-block';
+	            } else {
                 downloadDXF.style.display = 'none';
             }
        } catch (e) {
@@ -1202,8 +1449,8 @@ const modes = {
            downloadDXF.style.display = 'none';
        }
 
-       syncActionBarState();
-  }
+	       syncActionBarState();
+	  }
 
   function syncActionBarState() {
        if (!vpActionConvert) return;
@@ -2026,6 +2273,8 @@ const modes = {
        const ctx = originalCanvas.getContext('2d');
        ctx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
        svgPreview.innerHTML = '<p id="svgPlaceholder" class="text-gray-500">Upload or generate an image to begin.</p>';
+       lastGeneratedSVGContent = '';
+       lastGeneratedSVGContentRaw = '';
        downloadButtons.classList.add('hidden');
        document.getElementById('imageAdjustmentControls').classList.add('hidden');
        document.getElementById('outputSizeControls').classList.add('hidden');
@@ -2135,10 +2384,30 @@ const modes = {
             } catch (e) {
                 console.error("OpenCV Unsharp Mask Error: ", e);
             }
-        }
+	        }
 
-       originalImageData = ctx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
-  }
+	       // Optional strict B/W clamp on the processing image (affects all modes).
+	       const clampOn = !!inputBwClamp?.checked;
+	       if (inputBwThresholdWrap) inputBwThresholdWrap.style.display = clampOn ? 'block' : 'none';
+	       if (clampOn) {
+	           const thr = Math.max(0, Math.min(255, parseInt(inputBwThreshold?.value || '128', 10)));
+	           const thrLabel = document.getElementById('inputBwThresholdValue');
+	           if (thrLabel) thrLabel.textContent = String(thr);
+	           const imgData = ctx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+	           const d = imgData.data;
+	           for (let i = 0; i < d.length; i += 4) {
+	               const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+	               const bw = gray >= thr ? 255 : 0;
+	               d[i] = bw;
+	               d[i + 1] = bw;
+	               d[i + 2] = bw;
+	               // alpha unchanged
+	           }
+	           ctx.putImageData(imgData, 0, 0);
+	       }
+
+	       originalImageData = ctx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+	  }
 
   // --- UI Management ---
 
@@ -2354,6 +2623,31 @@ const modes = {
        });
   });
 
+  // Input B/W clamp controls
+  inputBwClamp?.addEventListener('change', () => {
+       if (inputBwThresholdWrap) inputBwThresholdWrap.style.display = inputBwClamp.checked ? 'block' : 'none';
+       if (currentImageObject) applyImageAdjustments();
+  });
+  inputBwThreshold?.addEventListener('input', () => {
+       const thr = parseInt(inputBwThreshold.value || '128', 10);
+       const thrLabel = document.getElementById('inputBwThresholdValue');
+       if (thrLabel) thrLabel.textContent = String(thr);
+       if (currentImageObject) applyImageAdjustments();
+  });
+
+  // SVG export controls (post-process without re-vectorizing)
+  const exportControls = [svgOptimize, svgMinify, svgOmitWhite, svgPrecision, svgBwClamp, svgBwThreshold].filter(Boolean);
+  exportControls.forEach((el) => {
+       el.addEventListener('input', () => {
+            syncExportControlsUI();
+            rerenderExportFromRaw();
+       });
+       el.addEventListener('change', () => {
+            syncExportControlsUI();
+            rerenderExportFromRaw();
+       });
+  });
+
   // Toggle between split-view and full-view preview
   togglePreviewBtn.addEventListener('click', () => {
        const isFullPreview = originalCanvasContainer.classList.contains('hidden');
@@ -2500,6 +2794,8 @@ const modes = {
   window.addEventListener('load', () => {
        updateParamsUI();
        generateBtn.disabled = true;
+       syncExportControlsUI();
+       if (inputBwThresholdWrap) inputBwThresholdWrap.style.display = inputBwClamp?.checked ? 'block' : 'none';
        if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
             const acc = controlsPanel?.querySelectorAll('details.vp-acc') || [];
             acc.forEach((d, i) => {
@@ -2537,6 +2833,14 @@ const modes = {
       'textPrompt',
       'promptPreset',
       'powerWordsToggle',
+      'inputBwClamp',
+      'inputBwThreshold',
+      'svgOptimize',
+      'svgMinify',
+      'svgOmitWhite',
+      'svgPrecision',
+      'svgBwClamp',
+      'svgBwThreshold',
     ];
     const serialize = (el) => {
       if (!el) return null;
