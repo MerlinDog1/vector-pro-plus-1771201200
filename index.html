@@ -180,8 +180,9 @@ body.vp-dark #vpActionBar .vp-ghost{border-color:#46639f;color:var(--vp-text)}
 	            <div id="controlsPanel" class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg">
 	                <h2 class="text-2xl font-bold mb-6 border-b pb-4">Controls</h2>
 
-	                <div id="errorDisplay" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
-	                </div>
+		                <div id="errorDisplay" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+		                </div>
+		                <div id="warningDisplay" class="hidden p-4 mb-4 text-sm text-yellow-900 rounded-lg bg-yellow-50 border border-yellow-200" role="status"></div>
 
 	                <details class="vp-acc mb-4" open>
 	                    <summary>
@@ -858,6 +859,7 @@ const inputBwThreshold = document.getElementById('inputBwThreshold');
 const inputBwThresholdWrap = document.getElementById('inputBwThresholdWrap');
 const togglePreviewBtn = document.getElementById('togglePreviewBtn');
 const errorDisplay = document.getElementById('errorDisplay');
+const warningDisplay = document.getElementById('warningDisplay');
 const fullscreenModal = document.getElementById('fullscreenModal');
 const fullscreenSvgContainer = document.getElementById('fullscreenSvgContainer');
 const closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
@@ -894,11 +896,11 @@ let currentWorker = null;
 // This object defines the UI controls for each conversion mode.
 const modes = {
      'tsp-art': [
-         { name: 'Number of Points', id: 'points', type: 'range', min: 1000, max: 250000, value: 10000, step: 100, unit:'' },
+         { name: 'Number of Points', id: 'points', type: 'range', min: 1000, max: 500000, value: 10000, step: 100, unit:'', warnAbove: 50000, dangerAbove: 200000 },
          { name: 'Gaussian Blur', id: 'gaussianBlur', type: 'range', min: 0, max: 5, value: 0.5, step: 0.1, unit:'px' },
          { name: 'Contrast Sensitivity', id: 'contrastSensitivity', type: 'range', min: 0.1, max: 10, value: 1.5, step: 0.1, unit:'' },
          { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 10, value: 1, unit:'' },
-         { name: 'Path Refinement Passes', id: 'refinementPasses', type: 'range', min: 0, max: 20, value: 3, step: 1, unit: ' passes' },
+         { name: 'Path Refinement Passes', id: 'refinementPasses', type: 'range', min: 0, max: 30, value: 3, step: 1, unit: ' passes', warnAbove: 8, dangerAbove: 15 },
          { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.15, step: 0.01 },
          { name: 'Invert', id: 'invert', type: 'checkbox' }
      ],
@@ -919,7 +921,7 @@ const modes = {
          { name: 'Round Coords', id: 'roundcoords', type: 'range', min: 0, max: 5, value: 1, step: 1, unit:'' },
      ],
      stippling: [
-         { name: 'Number of Points', id: 'points', type: 'range', min: 500, max: 100000, value: 10000, step: 100, unit:'' },
+         { name: 'Number of Points', id: 'points', type: 'range', min: 500, max: 250000, value: 10000, step: 100, unit:'', warnAbove: 30000, dangerAbove: 100000 },
          { name: 'Min Dot Size (mm)', id: 'minDotSize', type: 'range', min: 0.05, max: 5, value: 0.1, step: 0.05 },
          { name: 'Max Dot Size (mm)', id: 'maxDotSize', type: 'range', min: 0.05, max: 5, value: 0.5, step: 0.05 },
          { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 10, value: 1, unit:'' },
@@ -957,7 +959,7 @@ const modes = {
      "modulated-lines": [
          { name: 'Path Type', id: 'pathType', type: 'select', options: ['linear', 'spiral', 'circles'] },
          { name: 'Modulation Type', id: 'modulationType', type: 'select', options: ['amplitude', 'thickness'] },
-         { name: 'Number of Lines', id: 'numLines', type: 'range', min: 10, max: 500, value: 100, step: 1, unit:'', showIf: {id: 'pathType', value: 'linear'} },
+         { name: 'Number of Lines', id: 'numLines', type: 'range', min: 10, max: 2000, value: 100, step: 1, unit:'', showIf: {id: 'pathType', value: 'linear'}, warnAbove: 500, dangerAbove: 1200 },
          { name: 'Path Angle', id: 'angle', type: 'range', min: 0, max: 180, value: 0, unit: '°', showIf: {id: 'pathType', value: 'linear'} },
          { name: 'Wave Shape', id: 'waveShape', type: 'select', options: ['sine', 'triangle', 'square'], showIf: {id: 'modulationType', value: 'amplitude'} },
          { name: 'Max Amplitude (mm)', id: 'amplitude', type: 'range', min: 0, max: 20, value: 2.5, step: 0.1, showIf: {id: 'modulationType', value: 'amplitude'} },
@@ -971,14 +973,14 @@ const modes = {
          { name: 'Skip Every Other Line', id: 'skipRow', type: 'checkbox' }
      ],
      voronoi: [
-         { name: 'Number of Points', id: 'points', type: 'range', min: 100, max: 20000, value: 2000, step: 50, unit:'' },
+         { name: 'Number of Points', id: 'points', type: 'range', min: 100, max: 100000, value: 2000, step: 50, unit:'', warnAbove: 15000, dangerAbove: 50000 },
          { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.1, step: 0.01, showIf: {id: 'fillType', value: 'outline'} },
          { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 5, value: 1, unit:'' },
          { name: 'Fill Type', id: 'fillType', type: 'select', options: ['outline', 'filled'] },
          { name: 'Invert', id: 'invert', type: 'checkbox' }
      ],
      delaunay: [
-         { name: 'Number of Points', id: 'points', type: 'range', min: 100, max: 20000, value: 2000, step: 50, unit:'' },
+         { name: 'Number of Points', id: 'points', type: 'range', min: 100, max: 100000, value: 2000, step: 50, unit:'', warnAbove: 15000, dangerAbove: 50000 },
          { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.1, step: 0.01, showIf: {id: 'fillType', value: 'outline'} },
          { name: 'Relaxation Iterations', id: 'iterations', type: 'range', min: 0, max: 5, value: 0, unit:'' },
          { name: 'Fill Type', id: 'fillType', type: 'select', options: ['outline', 'filled'] },
@@ -991,12 +993,12 @@ const modes = {
          { name: 'Simplify Epsilon', id: 'epsilon', type: 'range', min: 0, max: 10, value: 1.5, step: 0.1, unit:'' },
      ],
      'quadtree-art': [
-        { name: 'Detail Sensitivity', id: 'threshold', type: 'range', min: 1, max: 100, value: 8, step: 1, unit:'' },
-        { name: 'Max Subdivision Depth', id: 'maxDepth', type: 'range', min: 1, max: 12, value: 8, step: 1, unit:'' },
-        { name: 'Min Square Size (mm)', id: 'minSize', type: 'range', min: 0.1, max: 20, value: 1, step: 0.1, unit:'mm' },
-        { name: 'Fill Type', id: 'fillType', type: 'select', options: ['solid', 'outline'] },
-        { name: 'Stroke Width (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.1, step: 0.01, showIf: {id: 'fillType', value: 'outline'} },
-        { name: 'Invert', id: 'invert', type: 'checkbox' }
+	        { name: 'Detail Sensitivity', id: 'threshold', type: 'range', min: 1, max: 100, value: 8, step: 1, unit:'' },
+	        { name: 'Max Subdivision Depth', id: 'maxDepth', type: 'range', min: 1, max: 16, value: 8, step: 1, unit:'', warnAbove: 12, dangerAbove: 14 },
+	        { name: 'Min Square Size (mm)', id: 'minSize', type: 'range', min: 0.1, max: 20, value: 1, step: 0.1, unit:'mm' },
+	        { name: 'Fill Type', id: 'fillType', type: 'select', options: ['solid', 'outline'] },
+	        { name: 'Stroke Width (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.1, step: 0.01, showIf: {id: 'fillType', value: 'outline'} },
+	        { name: 'Invert', id: 'invert', type: 'checkbox' }
      ]
   };
 
@@ -1085,6 +1087,17 @@ const modes = {
   /** Hides the error message display. */
   function hideError() {
        errorDisplay.classList.add('hidden');
+  }
+
+  function showWarning(message) {
+       if (!warningDisplay) return;
+       warningDisplay.textContent = message;
+       warningDisplay.classList.remove('hidden');
+  }
+
+  function hideWarning() {
+       if (!warningDisplay) return;
+       warningDisplay.classList.add('hidden');
   }
 
   /**
@@ -2095,15 +2108,46 @@ const modes = {
 
        await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update before heavy work
 
-       // Get all parameters from the UI
-       let params = getParams();
-       const mode = modeSelect.value;
-       const outputWidthMM = parseFloat(outputWidthInput.value);
-       const outputHeightMM = parseFloat(outputHeightInput.value);
-       const { width: viewBoxWidth, height: viewBoxHeight } = originalImageData;
+	       // Get all parameters from the UI
+	       let params = getParams();
+	       const mode = modeSelect.value;
+	       const outputWidthMM = parseFloat(outputWidthInput.value);
+	       const outputHeightMM = parseFloat(outputHeightInput.value);
+	       const { width: viewBoxWidth, height: viewBoxHeight } = originalImageData;
 
-       // Modes that are computationally expensive and should run in a web worker
-       const workerModes = ['stippling', 'voronoi', 'delaunay', 'tsp-art', 'error-diffusion', 'quadtree-art'];
+	       hideWarning();
+	       // Soft safety checks for raised mode limits.
+	       const paramDefs = modes[mode] || [];
+	       const warnPairs = [];
+	       const dangerPairs = [];
+	       paramDefs.forEach((d) => {
+	            if (d.warnAbove == null) return;
+	            const v = params[d.id];
+	            if (typeof v !== 'number') return;
+	            if (d.dangerAbove != null && v >= d.dangerAbove) dangerPairs.push(`${d.id}=${v}`);
+	            else if (v >= d.warnAbove) warnPairs.push(`${d.id}=${v}`);
+	       });
+	       const resPx = parseInt(resolutionSelect?.value || '1024', 10);
+	       if (resPx >= 4096) warnPairs.push(`resolution=${resPx}px`);
+	       if (resPx >= 8192) dangerPairs.push(`resolution=${resPx}px`);
+
+	       if (dangerPairs.length) {
+	            const msg =
+	                 `Very high settings detected (${dangerPairs.join(', ')}).\\n\\nThis may freeze/crash the browser. Continue?`;
+	            if (!confirm(msg)) {
+	                 loader.classList.add('hidden');
+	                 previewArea.classList.remove('hidden');
+	                 generateBtn.disabled = false;
+	                 syncActionBarState();
+	                 return;
+	            }
+	            showWarning(`Very high settings: ${dangerPairs.join(', ')}. Expect slow/unstable runs.`);
+	       } else if (warnPairs.length) {
+	            showWarning(`High settings: ${warnPairs.join(', ')}. Expect slower processing.`);
+	       }
+
+	       // Modes that are computationally expensive and should run in a web worker
+	       const workerModes = ['stippling', 'voronoi', 'delaunay', 'tsp-art', 'error-diffusion', 'quadtree-art'];
 
        if (workerModes.includes(mode)) {
            // Create and configure the web worker
@@ -2496,10 +2540,31 @@ const modes = {
                const valueSpan = document.createElement('span');
                valueSpan.className = 'text-sm font-semibold text-blue-600 w-16 text-right';
                valueSpan.textContent = `${param.value}${param.unit || ''}`;
-               input.oninput = () => { valueSpan.textContent = `${input.value}${param.unit || ''}`; };
+               const warnP = document.createElement('p');
+               warnP.className = 'hidden mt-1 text-xs font-semibold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-md p-2';
+
+               const updateRangeUi = () => {
+                   valueSpan.textContent = `${input.value}${param.unit || ''}`;
+                   if (param.warnAbove != null) {
+                       const v = parseFloat(input.value);
+                       const warn = v >= param.warnAbove;
+                       const danger = param.dangerAbove != null && v >= param.dangerAbove;
+                       if (warn) {
+                           warnP.classList.remove('hidden');
+                           warnP.textContent = danger
+                                ? 'Very high value. This can freeze or crash the browser. Consider lowering resolution or parameters.'
+                                : 'High value. Expect slower processing and higher memory use.';
+                       } else {
+                           warnP.classList.add('hidden');
+                       }
+                   }
+               };
+               input.addEventListener('input', updateRangeUi);
                rangeWrapper.appendChild(input);
                rangeWrapper.appendChild(valueSpan);
                wrapper.appendChild(rangeWrapper);
+               if (param.warnAbove != null) wrapper.appendChild(warnP);
+               updateRangeUi();
            } else if (param.type === 'checkbox') {
                const checkboxWrapper = document.createElement('div');
                checkboxWrapper.className = 'flex items-center';
