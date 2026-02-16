@@ -128,6 +128,32 @@ body.vp-dark .icon-btn:hover{color:#fff!important;background-color:#243460!impor
 #vpToast{position:fixed;bottom:16px;right:16px;background:#0f172a;color:#fff;border:1px solid #334155;padding:10px 12px;border-radius:12px;z-index:60;display:none}
 #svgPreview{background:#fff!important;color:#111!important;}
 body.vp-dark #svgPreview{background:#fff!important;color:#111!important;}
+
+/* Mobile-first: collapsible sections + sticky actions */
+.vp-acc{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;background:#fff}
+body.vp-dark .vp-acc{border-color:#3b4f80;background:color-mix(in srgb, var(--vp-card) 92%, #000 8%)}
+.vp-acc summary{list-style:none;cursor:pointer;user-select:none;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;font-weight:800}
+.vp-acc summary::-webkit-details-marker{display:none}
+.vp-acc .vp-acc-meta{font-size:.8rem;font-weight:700;opacity:.75}
+.vp-acc .vp-acc-body{padding:12px 14px;border-top:1px solid #e5e7eb}
+body.vp-dark .vp-acc .vp-acc-body{border-top-color:#3b4f80}
+.vp-chevron{width:10px;height:10px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .15s ease}
+details[open] .vp-chevron{transform:rotate(225deg)}
+
+#vpActionBar{position:fixed;left:0;right:0;bottom:0;z-index:55;padding:10px 12px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-top:1px solid #e5e7eb}
+body.vp-dark #vpActionBar{background:rgba(14,22,46,.88);border-top-color:#3b4f80}
+#vpActionBar .vp-row{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;max-width:1200px;margin:0 auto}
+#vpActionBar button,#vpActionBar a{border-radius:12px;padding:10px 12px;font-weight:900;font-size:.9rem}
+#vpActionBar .vp-primary{background:#16a34a;color:#fff}
+#vpActionBar .vp-secondary{background:#0ea5e9;color:#fff}
+#vpActionBar .vp-ghost{background:transparent;border:1px solid #cbd5e1}
+body.vp-dark #vpActionBar .vp-ghost{border-color:#46639f;color:var(--vp-text)}
+@media (min-width: 768px){#vpActionBar{display:none}}
+@media (max-width: 767px){body{padding-bottom:84px}}
+
+/* Fullscreen: keep vector on a white panel */
+#fullscreenSvgContainer{background:#fff;border-radius:14px;margin:18px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+#fullscreenSvgContainer > svg{background:#fff}
 </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -151,38 +177,47 @@ body.vp-dark #svgPreview{background:#fff!important;color:#111!important;}
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-            <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg">
-                <h2 class="text-2xl font-bold mb-6 border-b pb-4">Controls</h2>
+	            <div id="controlsPanel" class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg">
+	                <h2 class="text-2xl font-bold mb-6 border-b pb-4">Controls</h2>
 
-                <div id="errorDisplay" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
-                </div>
+	                <div id="errorDisplay" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+	                </div>
 
-                <div class="mb-6 control-group pl-4 py-2">
-                     <label class="block text-lg font-medium mb-2">1. Image Source</label>
-                    <div class="space-y-4">
-                        <div class="grid grid-cols-2 gap-2">
-                             <label for="imageUpload" class="text-center text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-3 cursor-pointer">Upload File</label>
-                             <input type="file" id="imageUpload" accept="image/*" class="hidden">
-                             <label for="cameraUpload" class="text-center text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-3 cursor-pointer">Take Photo</label>
-                             <input type="file" id="cameraUpload" accept="image/*" capture="environment" class="hidden">
-                        </div>
+	                <details class="vp-acc mb-4" open>
+	                    <summary>
+	                        <span>1. Image Source</span>
+	                        <span class="vp-chevron" aria-hidden="true"></span>
+	                    </summary>
+	                    <div class="vp-acc-body control-group pl-4 py-2">
+	                        <div class="space-y-4">
+	                        <div class="grid grid-cols-2 gap-2">
+	                             <label for="imageUpload" class="text-center text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-3 cursor-pointer">Upload File</label>
+	                             <input type="file" id="imageUpload" accept="image/*" class="hidden">
+	                             <label for="cameraUpload" class="text-center text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-2 px-3 cursor-pointer">Take Photo</label>
+	                             <input type="file" id="cameraUpload" accept="image/*" capture="environment" class="hidden">
+	                        </div>
 
-                         <div id="uploadPreviewContainer" class="hidden text-center">
-                             <img id="uploadPreview" class="max-w-full h-auto rounded-lg shadow-md mx-auto mb-4 border" alt="Image upload preview">
-                             <div class="flex space-x-2">
-                                 <button id="useOriginalBtn" class="w-1/2 bg-green-600 text-white font-semibold py-2 px-3 rounded-lg text-sm">Use Original</button>
-                                 <button id="generateAiFromUploadBtn" class="w-1/2 bg-purple-600 text-white font-semibold py-2 px-3 rounded-lg text-sm">Generate AI Version</button>
-                             </div>
-                         </div>
-                    </div>
-                </div>
+	                         <div id="uploadPreviewContainer" class="hidden text-center">
+	                             <img id="uploadPreview" class="max-w-full h-auto rounded-lg shadow-md mx-auto mb-4 border" alt="Image upload preview">
+	                             <div class="flex space-x-2">
+	                                 <button id="useOriginalBtn" class="w-1/2 bg-green-600 text-white font-semibold py-2 px-3 rounded-lg text-sm">Use Original</button>
+	                                 <button id="generateAiFromUploadBtn" class="w-1/2 bg-purple-600 text-white font-semibold py-2 px-3 rounded-lg text-sm">Generate AI Version</button>
+	                             </div>
+	                         </div>
+	                        </div>
+	                    </div>
+	                </details>
 
-                <div class="mb-6 control-group pl-4 py-2">
-                     <label class="block text-lg font-medium mb-2">2. Or Generate from Text</label>
-                     <div class="space-y-4">
-                         <div class="relative">
-                             <textarea id="textPrompt" class="w-full p-2 pr-20 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition resize-none" rows="3" placeholder="e.g., A detailed vintage car..."></textarea>
-                             <div class="absolute top-2 right-2 flex flex-col space-y-1">
+	                <details class="vp-acc mb-4" open>
+	                     <summary>
+	                         <span>2. Generate from Text</span>
+	                         <span class="vp-chevron" aria-hidden="true"></span>
+	                     </summary>
+	                     <div class="vp-acc-body control-group pl-4 py-2">
+	                     <div class="space-y-4">
+	                         <div class="relative">
+	                             <textarea id="textPrompt" class="w-full p-2 pr-20 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition resize-none" rows="3" placeholder="e.g., A detailed vintage car..."></textarea>
+	                             <div class="absolute top-2 right-2 flex flex-col space-y-1">
                                  <button id="aiCompleteBtn" class="icon-btn" title="Auto-complete prompt with AI"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg></button>
                                  <button id="copyPromptBtn" class="icon-btn" title="Copy Prompt"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg></button>
                                  <button id="clearPromptBtn" class="icon-btn" title="Clear Prompt"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
@@ -212,17 +247,22 @@ body.vp-dark #svgPreview{background:#fff!important;color:#111!important;}
                              <button id="randomSceneBtn" class="py-2 px-4 text-xs font-bold text-white bg-gray-600 rounded-lg shadow-md transform transition hover:bg-gray-700 active:scale-95 disabled:bg-gray-400">Random Scene</button>
                              <button id="randomPatternBtn" class="py-2 px-4 text-xs font-bold text-white bg-gray-600 rounded-lg shadow-md transform transition hover:bg-gray-700 active:scale-95 disabled:bg-gray-400">Random Pattern</button>
                          </div>
-                         <button id="generateImageBtn" class="w-full mt-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400">Generate Image</button>
-                         <p class="text-xs text-gray-500 italic mt-2">Gemini can make mistakes, including about people, so double-check its responses.</p>
-                     </div>
-                 </div>
+	                         <button id="generateImageBtn" class="w-full mt-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400">Generate Image</button>
+	                         <p class="text-xs text-gray-500 italic mt-2">Gemini can make mistakes, including about people, so double-check its responses.</p>
+	                     </div>
+	                     </div>
+	                 </details>
 
-                <div id="imageAdjustmentControls" class="mb-6 control-group pl-4 py-2 hidden">
-                    <label class="block text-lg font-medium mb-2">3. Image Adjustments</label>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="contrast" class="block text-sm font-medium text-gray-700">Contrast</label>
-                            <div class="flex items-center gap-2 mt-1">
+	                <details id="imageAdjustmentControls" class="vp-acc mb-4 hidden" open>
+	                    <summary>
+	                        <span>3. Image Adjustments</span>
+	                        <span class="vp-chevron" aria-hidden="true"></span>
+	                    </summary>
+	                    <div class="vp-acc-body control-group pl-4 py-2">
+	                    <div class="space-y-4">
+	                        <div>
+	                            <label for="contrast" class="block text-sm font-medium text-gray-700">Contrast</label>
+	                            <div class="flex items-center gap-2 mt-1">
                                 <input type="range" id="contrast" min="0" max="200" value="100" class="w-full">
                                 <span id="contrastValue" class="text-sm font-semibold text-blue-600 w-12 text-right">100%</span>
                             </div>
@@ -250,55 +290,72 @@ body.vp-dark #svgPreview{background:#fff!important;color:#111!important;}
                         </div>
                         <div>
                             <label for="resolutionSelect" class="block text-sm font-medium text-gray-700">Processing Resolution</label>
-                            <select id="resolutionSelect" class="w-full p-2 mt-1 text-sm border-gray-300 rounded-md">
-                                <option value="512">512px (Stable)</option>
-                                <option value="1024" selected>1024px (Recommended)</option>
-                                <option value="2048">2048px (High Quality)</option>
-                                <option value="4096">4096px (Very High - Slow)</option>
-                                <option value="8192">8192px (Extreme - Unstable)</option>
-                            </select>
-                            <p class="text-xs text-gray-500 mt-1">Higher resolutions provide more detail but are much slower and may crash the browser.</p>
-                        </div>
-                    </div>
-                </div>
+	                            <select id="resolutionSelect" class="w-full p-2 mt-1 text-sm border-gray-300 rounded-md">
+	                                <option value="512">512px (Stable)</option>
+	                                <option value="1024" selected>1024px (Recommended)</option>
+	                                <option value="2048">2048px (High Quality)</option>
+	                                <option value="4096">4096px (Very High - Slow)</option>
+	                                <option value="8192">8192px (Extreme - Unstable)</option>
+	                            </select>
+	                            <p class="text-xs text-gray-500 mt-1">Higher resolutions provide more detail but are much slower and may crash the browser.</p>
+	                        </div>
+	                    </div>
+	                    </div>
+	                </details>
 
-                <div id="outputSizeControls" class="mb-6 control-group pl-4 py-2 hidden">
-                    <label class="block text-lg font-medium mb-2">4. Output Size (mm)</label>
-                    <div class="flex items-center space-x-2">
-                        <input type="number" id="outputWidth" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Width">
-                        <span class="text-gray-500">×</span>
-                        <input type="number" id="outputHeight" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Height">
-                    </div>
-                </div>
+	                <details id="outputSizeControls" class="vp-acc mb-4 hidden" open>
+	                    <summary>
+	                        <span>4. Output Size (mm)</span>
+	                        <span class="vp-chevron" aria-hidden="true"></span>
+	                    </summary>
+	                    <div class="vp-acc-body control-group pl-4 py-2">
+	                    <div class="flex items-center space-x-2">
+	                        <input type="number" id="outputWidth" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Width">
+	                        <span class="text-gray-500">×</span>
+	                        <input type="number" id="outputHeight" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Height">
+	                    </div>
+	                    </div>
+	                </details>
 
-                <div class="mb-6 control-group pl-4 py-2">
-                    <label for="modeSelect" class="block text-lg font-medium mb-2">5. Select Mode</label>
-                    <select id="modeSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="tsp-art">TSP Art</option>
-                        <option value="vector-trace">Vector Trace</option>
-                        <option value="stippling">Stippling</option>
+	                <details class="vp-acc mb-4" open>
+	                    <summary>
+	                        <span>5. Mode</span>
+	                        <span class="vp-chevron" aria-hidden="true"></span>
+	                    </summary>
+	                    <div class="vp-acc-body control-group pl-4 py-2">
+	                    <label for="modeSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Mode</label>
+	                    <select id="modeSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+	                        <option value="tsp-art">TSP Art</option>
+	                        <option value="vector-trace">Vector Trace</option>
+	                        <option value="stippling">Stippling</option>
                         <option value="text-art">Text Art</option>
                         <option value="halftone">Halftone</option>
                         <option value="error-diffusion">Error Diffusion</option>
                         <option value="modulated-lines">Modulated Lines</option>
                         <option value="voronoi">Voronoi Cells</option>
                         <option value="delaunay">Delaunay Triangles</option>
-                        <option value="edge-art">Edge / Line Art</option>
-                        <option value="quadtree-art">Quadtree Art</option>
-                    </select>
-                </div>
+	                        <option value="edge-art">Edge / Line Art</option>
+	                        <option value="quadtree-art">Quadtree Art</option>
+	                    </select>
+	                    </div>
+	                </details>
 
-                <div class="control-group pl-4 py-2">
-                    <h3 class="text-lg font-medium mb-4">6. Adjust Parameters</h3>
-                    <div id="paramsContainer" class="space-y-4"></div>
-                </div>
+	                <details class="vp-acc mb-4" open>
+	                    <summary>
+	                        <span>6. Parameters</span>
+	                        <span class="vp-chevron" aria-hidden="true"></span>
+	                    </summary>
+	                    <div class="vp-acc-body control-group pl-4 py-2">
+	                    <div id="paramsContainer" class="space-y-4"></div>
+	                    </div>
+	                </details>
 
-                <div class="mt-8">
-                     <button id="generateBtn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition duration-300 ease-in-out disabled:bg-gray-400">
-                        Convert to Vector
-                    </button>
-                </div>
-            </div>
+	                <div class="mt-8">
+	                     <button id="generateBtn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition duration-300 ease-in-out disabled:bg-gray-400">
+	                        Convert to Vector
+	                    </button>
+	                </div>
+	            </div>
 
             <div class="lg:col-span-9 bg-white p-6 rounded-2xl shadow-lg">
                 <div class="flex justify-between items-center mb-6 border-b pb-4">
@@ -327,8 +384,22 @@ body.vp-dark #svgPreview{background:#fff!important;color:#111!important;}
                          <h3 class="text-xl font-semibold mb-2 text-center">Vector Preview</h3>
                          <div id="svgPreview" class="w-full h-auto border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center p-4 min-h-[300px]">
                              <p id="svgPlaceholder" class="text-gray-500">Upload or generate an image to begin.</p>
-                         </div>
-                    </div>
+	        </div>
+	    </div>
+
+	    <!-- Mobile sticky actions -->
+	    <div id="vpActionBar" class="md:hidden">
+	        <div class="vp-row">
+	            <button id="vpActionControls" type="button" class="vp-ghost">Controls</button>
+	            <button id="vpActionConvert" type="button" class="vp-primary" disabled>Convert</button>
+	            <button id="vpActionDownloadSvg" type="button" class="vp-secondary" disabled>SVG</button>
+	        </div>
+	        <div class="vp-row" style="margin-top:10px">
+	            <button id="vpActionFullscreen" type="button" class="vp-ghost" disabled>Fullscreen</button>
+	            <button id="vpActionDownloadDxf" type="button" class="vp-ghost" disabled>DXF</button>
+	            <button id="vpActionTogglePreview" type="button" class="vp-ghost">Split</button>
+	        </div>
+	    </div>
                  </div>
 
                  <div id="downloadButtons" class="mt-8 text-center hidden">
@@ -699,6 +770,15 @@ const fullscreenSvgContainer = document.getElementById('fullscreenSvgContainer')
 const closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 
+// Mobile sticky actions
+const controlsPanel = document.getElementById('controlsPanel');
+const vpActionControls = document.getElementById('vpActionControls');
+const vpActionConvert = document.getElementById('vpActionConvert');
+const vpActionDownloadSvg = document.getElementById('vpActionDownloadSvg');
+const vpActionDownloadDxf = document.getElementById('vpActionDownloadDxf');
+const vpActionFullscreen = document.getElementById('vpActionFullscreen');
+const vpActionTogglePreview = document.getElementById('vpActionTogglePreview');
+
 let originalImageData = null;
 let currentImageObject = null; // Store the image object for the main canvas
 let uploadedImageFile = null; // Store the raw uploaded file
@@ -1040,6 +1120,24 @@ const modes = {
            console.error("DXF Generation Error:", e);
            downloadDXF.style.display = 'none';
        }
+
+       syncActionBarState();
+  }
+
+  function syncActionBarState() {
+       if (!vpActionConvert) return;
+
+       vpActionConvert.disabled = !!generateBtn.disabled;
+       vpActionDownloadSvg.disabled = !lastGeneratedSVGContent;
+       vpActionFullscreen.disabled = !lastGeneratedSVGContent;
+       vpActionDownloadDxf.disabled =
+            !lastGeneratedSVGContent || downloadDXF.style.display === 'none' || downloadButtons.classList.contains('hidden');
+
+       const isFullPreview = originalCanvasContainer.classList.contains('hidden');
+       if (vpActionTogglePreview) vpActionTogglePreview.textContent = isFullPreview ? 'Split' : 'Full';
+
+       const controlsHidden = controlsPanel?.classList.contains('hidden');
+       if (vpActionControls) vpActionControls.textContent = controlsHidden ? 'Controls' : 'Hide';
   }
 
   /**
@@ -1646,11 +1744,12 @@ const modes = {
        // Update UI to show loading state
        loader.classList.remove('hidden');
        loaderText.textContent = 'Processing, please wait...';
-       previewArea.classList.add('hidden');
-       downloadButtons.classList.add('hidden');
-       generateBtn.disabled = true;
-       hideError();
-       svgPreview.style.backgroundColor = 'white'; // Reset background
+	       previewArea.classList.add('hidden');
+	       downloadButtons.classList.add('hidden');
+	       generateBtn.disabled = true;
+	       syncActionBarState();
+	       hideError();
+	       svgPreview.style.backgroundColor = 'white'; // Reset background
 
        await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI to update before heavy work
 
@@ -1837,6 +1936,7 @@ const modes = {
        document.getElementById('outputSizeControls').classList.add('hidden');
        deleteImageBtn.classList.add('hidden');
        generateBtn.disabled = true;
+       syncActionBarState();
   }
 
   // Handles the file selection from upload or camera
@@ -1875,6 +1975,7 @@ const modes = {
 
            generateBtn.disabled = false;
            uploadPreviewContainer.classList.add('hidden'); // Hide the temp preview section
+           syncActionBarState();
        };
        img.onerror = () => {
            showError("Failed to load image file. It might be corrupt or in an unsupported format.");
@@ -2168,14 +2269,15 @@ const modes = {
            previewArea.classList.replace('md:grid-cols-1', 'md:grid-cols-2');
            svgParent.classList.remove('lg:col-span-2');
            togglePreviewBtn.textContent = 'Full Preview';
-       } else {
-           // Switch to Full Preview
-           originalCanvasContainer.classList.add('hidden');
-           previewArea.classList.replace('md:grid-cols-2', 'md:grid-cols-1');
-           svgParent.classList.add('lg:col-span-2');
-           togglePreviewBtn.textContent = 'Split View';
-       }
-  });
+	       } else {
+	           // Switch to Full Preview
+	           originalCanvasContainer.classList.add('hidden');
+	           previewArea.classList.replace('md:grid-cols-2', 'md:grid-cols-1');
+	           svgParent.classList.add('lg:col-span-2');
+	           togglePreviewBtn.textContent = 'Split View';
+	       }
+	       syncActionBarState();
+	  });
 
   // Utility button event listeners
   clearPromptBtn.addEventListener('click', () => { textPrompt.value = ''; });
@@ -2195,6 +2297,26 @@ const modes = {
        }
   });
   deleteImageBtn.addEventListener('click', deleteImage);
+
+  // --- Mobile sticky actions wiring ---
+  vpActionControls?.addEventListener('click', () => {
+       if (!controlsPanel) return;
+       controlsPanel.classList.toggle('hidden');
+       if (!controlsPanel.classList.contains('hidden')) {
+           controlsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+       } else {
+           svgPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+       }
+       syncActionBarState();
+  });
+  vpActionConvert?.addEventListener('click', () => {
+       generateBtn?.click();
+       svgPreviewContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  vpActionDownloadSvg?.addEventListener('click', () => downloadSVG?.click());
+  vpActionDownloadDxf?.addEventListener('click', () => downloadDXF?.click());
+  vpActionFullscreen?.addEventListener('click', () => fullscreenBtn?.click());
+  vpActionTogglePreview?.addEventListener('click', () => togglePreviewBtn?.click());
 
   // --- Fullscreen Modal Logic ---
   let isPanning = false;
@@ -2280,33 +2402,113 @@ const modes = {
   });
 
   // Initialize the app on window load
-  window.onload = () => {
+  window.addEventListener('load', () => {
        updateParamsUI();
        generateBtn.disabled = true;
-  };
+       if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
+            const acc = controlsPanel?.querySelectorAll('details.vp-acc') || [];
+            acc.forEach((d, i) => {
+                 // Keep only the first sections open on mobile by default.
+                 d.open = i < 2;
+            });
+       }
+       syncActionBarState();
+  });
+
+  // --- Lightweight app enhancements (theme + presets + shortcuts) ---
+  (() => {
+    const toast = (msg) => {
+      const t = document.getElementById('vpToast');
+      if (!t) return;
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(toast._tm);
+      toast._tm = setTimeout(() => (t.style.display = 'none'), 2200);
+    };
+    const $ = (id) => document.getElementById(id);
+    const appIds = [
+      'modeSelect',
+      'contrast',
+      'brightness',
+      'unsharpAmount',
+      'unsharpRadius',
+      'resolutionSelect',
+      'outputWidth',
+      'outputHeight',
+      'detailLevel',
+      'shadingStyle',
+      'generationStyle',
+      'aspectRatio',
+      'textPrompt',
+    ];
+    const getState = () => Object.fromEntries(appIds.map((id) => [id, $(id)?.value ?? null]));
+    const setState = (state) => {
+      Object.entries(state || {}).forEach(([id, v]) => {
+        const el = $(id);
+        if (el && v != null) {
+          el.value = v;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    };
+
+    const themeKey = 'vp_theme_dark';
+    if (localStorage.getItem(themeKey) !== '0') document.body.classList.add('vp-dark');
+    $('vpThemeToggle')?.addEventListener('click', () => {
+      document.body.classList.toggle('vp-dark');
+      localStorage.setItem(themeKey, document.body.classList.contains('vp-dark') ? '1' : '0');
+    });
+
+    const presetKey = 'vp_preset_v1';
+    $('vpSavePreset')?.addEventListener('click', () => {
+      localStorage.setItem(presetKey, JSON.stringify(getState()));
+      toast('Preset saved');
+    });
+    $('vpLoadPreset')?.addEventListener('click', () => {
+      const raw = localStorage.getItem(presetKey);
+      if (!raw) return toast('No preset saved');
+      try {
+        setState(JSON.parse(raw));
+        toast('Preset loaded');
+      } catch {
+        toast('Preset broken');
+      }
+    });
+    $('vpExportPreset')?.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(getState(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'vector-pro-preset.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    $('vpImportPreset')?.addEventListener('click', () => $('vpPresetFile')?.click());
+    $('vpPresetFile')?.addEventListener('change', async (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      try {
+        const txt = await f.text();
+        setState(JSON.parse(txt));
+        toast('Preset imported');
+      } catch {
+        toast('Invalid JSON preset');
+      }
+    });
+
+    // Keyboard shortcuts: Ctrl/Cmd+G convert, Ctrl/Cmd+S download SVG
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        $('generateBtn')?.click();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        $('downloadSVG')?.click();
+      }
+    });
+  })();
   </script>
 
   </body>
   </html>
-
-<script id="vp-enhance-js">
-(() => {
-  const toast=(msg)=>{const t=document.getElementById('vpToast'); if(!t) return; t.textContent=msg; t.style.display='block'; clearTimeout(toast._tm); toast._tm=setTimeout(()=>t.style.display='none',2200);};
-  const $ = (id)=>document.getElementById(id);
-  const appIds=['modeSelect','contrast','brightness','unsharpAmount','unsharpRadius','resolutionSelect','outputWidth','outputHeight','detailLevel','shadingStyle','generationStyle','aspectRatio','textPrompt'];
-  const getState=()=>Object.fromEntries(appIds.map(id=>[id,$(id)?.value ?? null]));
-  const setState=(state)=>{Object.entries(state||{}).forEach(([id,v])=>{const el=$(id); if(el && v!=null){el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true}));}});};
-  const themeKey='vp_theme_dark';
-  if(localStorage.getItem(themeKey)!=='0') document.body.classList.add('vp-dark');
-  $('vpThemeToggle')?.addEventListener('click',()=>{document.body.classList.toggle('vp-dark'); localStorage.setItem(themeKey, document.body.classList.contains('vp-dark') ? '1' : '0');});
-  const presetKey='vp_preset_v1';
-  $('vpSavePreset')?.addEventListener('click',()=>{localStorage.setItem(presetKey, JSON.stringify(getState())); toast('Preset saved');});
-  $('vpLoadPreset')?.addEventListener('click',()=>{const raw=localStorage.getItem(presetKey); if(!raw) return toast('No preset saved'); try{setState(JSON.parse(raw)); toast('Preset loaded');}catch{toast('Preset broken');}});
-  $('vpExportPreset')?.addEventListener('click',()=>{const blob=new Blob([JSON.stringify(getState(),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='vector-pro-preset.json'; a.click(); URL.revokeObjectURL(a.href);});
-  $('vpImportPreset')?.addEventListener('click',()=>$('vpPresetFile')?.click());
-  $('vpPresetFile')?.addEventListener('change',async(e)=>{const f=e.target.files?.[0]; if(!f) return; try{const txt=await f.text(); setState(JSON.parse(txt)); toast('Preset imported');}catch{toast('Invalid JSON preset');}});
-  document.addEventListener('keydown',(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='g'){e.preventDefault(); $('generateBtn')?.click();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault(); $('downloadSVG')?.click();}});
-})();
-</script>
-</body>
-</html>
