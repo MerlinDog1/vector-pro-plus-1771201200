@@ -382,6 +382,7 @@ body.vp-dark #vpActionBar .vp-ghost{border-color:#46639f;color:var(--vp-text)}
                         <option value="voronoi">Voronoi Cells</option>
                         <option value="delaunay">Delaunay Triangles</option>
 	                        <option value="edge-art">Edge / Line Art</option>
+	                        <option value="binary-contours">Binary Contours (OpenCV)</option>
 	                        <option value="quadtree-art">Quadtree Art</option>
 	                    </select>
 	                    </div>
@@ -992,6 +993,17 @@ const modes = {
          { name: 'Line Thickness (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.2, step: 0.01 },
          { name: 'Simplify Epsilon', id: 'epsilon', type: 'range', min: 0, max: 10, value: 1.5, step: 0.1, unit:'' },
      ],
+     'binary-contours': [
+         { name: 'Threshold Method', id: 'threshMethod', type: 'select', options: ['otsu', 'adaptive', 'manual'] },
+         { name: 'Manual Threshold', id: 'threshold', type: 'range', min: 0, max: 255, value: 128, unit:'', showIf: {id: 'threshMethod', value: 'manual'} },
+         { name: 'Adaptive Block Size', id: 'blockSize', type: 'range', min: 3, max: 51, value: 25, step: 2, unit:'', showIf: {id: 'threshMethod', value: 'adaptive'} },
+         { name: 'Adaptive C', id: 'c', type: 'range', min: -20, max: 20, value: 5, step: 1, unit:'', showIf: {id: 'threshMethod', value: 'adaptive'} },
+         { name: 'Simplify Epsilon (px)', id: 'epsilon', type: 'range', min: 0, max: 10, value: 1.2, step: 0.1, unit:'' },
+         { name: 'Min Area (px²)', id: 'minArea', type: 'range', min: 0, max: 5000, value: 50, step: 10, unit:'' },
+         { name: 'Fill Type', id: 'fillType', type: 'select', options: ['filled', 'outline'] },
+         { name: 'Stroke Width (mm)', id: 'strokeWidth', type: 'range', min: 0.01, max: 2, value: 0.2, step: 0.01, showIf: {id: 'fillType', value: 'outline'} },
+         { name: 'Invert', id: 'invert', type: 'checkbox' }
+     ],
      'quadtree-art': [
 	        { name: 'Detail Sensitivity', id: 'threshold', type: 'range', min: 1, max: 100, value: 8, step: 1, unit:'' },
 	        { name: 'Max Subdivision Depth', id: 'maxDepth', type: 'range', min: 1, max: 16, value: 8, step: 1, unit:'', warnAbove: 12, dangerAbove: 14 },
@@ -1492,6 +1504,11 @@ const modes = {
        return d;
   }
 
+  function openCVContourToClosedPath(contour) {
+       let d = openCVContourToPath(contour);
+       return d + ' Z';
+  }
+
   // --- Main Generation Functions (Executed on the Main Thread) ---
 
   /**
@@ -1910,6 +1927,111 @@ const modes = {
        });
   }
 
+  // Binary contour tracing using OpenCV thresholding + contour extraction (filled or outline).
+  async function generateBinaryContours(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight) {
+       return new Promise((resolve, reject) => {
+           if (!window.cv || typeof cv.threshold !== 'function') {
+               const checkOpenCV = () => {
+                   if (window.cv && typeof cv.threshold === 'function') {
+                       generateBinaryContours(params, widthMM, heightMM, viewBoxWidth, viewBoxHeight).then(resolve).catch(reject);
+                   } else {
+                       setTimeout(checkOpenCV, 100);
+                   }
+               };
+               checkOpenCV();
+               return;
+           }
+
+           try {
+               const { threshMethod, threshold, blockSize, c, epsilon, minArea, fillType, strokeWidth, invert } = params;
+               let src = cv.matFromImageData(originalImageData);
+               let gray = new cv.Mat();
+               cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+               let bw = new cv.Mat();
+               if (threshMethod === 'adaptive') {
+                   const bs = Math.max(3, (parseInt(blockSize, 10) || 25) | 1); // odd >= 3
+                   const C = parseInt(c, 10) || 0;
+                   cv.adaptiveThreshold(gray, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, bs, C);
+               } else if (threshMethod === 'manual') {
+                   const thr = Math.max(0, Math.min(255, parseInt(threshold, 10) || 128));
+                   cv.threshold(gray, bw, thr, 255, cv.THRESH_BINARY);
+               } else {
+                   // Otsu
+                   cv.threshold(gray, bw, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+               }
+
+               if (invert) cv.bitwise_not(bw, bw);
+
+               let contours = new cv.MatVector();
+               let hierarchy = new cv.Mat();
+               cv.findContours(bw, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+
+               const scale = viewBoxWidth / widthMM;
+               const strokeWidthPx = (strokeWidth || 0.2) * scale;
+               const eps = Math.max(0, parseFloat(epsilon) || 0);
+               const minA = Math.max(0, parseFloat(minArea) || 0);
+
+               // OpenCV hierarchy is an int32 array: [next, prev, child, parent] per contour.
+               const h = hierarchy.data32S || [];
+               const getH = (i, off) => h[i * 4 + off];
+
+               let svgElements = '';
+               for (let i = 0; i < contours.size(); i++) {
+                   // Only process outer contours (parent == -1), but include their holes as subpaths.
+                   if (h.length && getH(i, 3) !== -1) continue;
+
+                   const c0 = contours.get(i);
+                   const area0 = Math.abs(cv.contourArea(c0));
+                   if (area0 < minA) {
+                       c0.delete();
+                       continue;
+                   }
+
+                   let simplified0 = new cv.Mat();
+                   cv.approxPolyDP(c0, simplified0, eps, true);
+                   let d = simplified0.rows > 1 ? openCVContourToClosedPath(simplified0) : '';
+                   simplified0.delete();
+                   c0.delete();
+
+                   // Add hole subpaths (children)
+                   if (h.length) {
+                       for (let child = getH(i, 2); child !== -1; child = getH(child, 0)) {
+                           const cc = contours.get(child);
+                           const areaC = Math.abs(cv.contourArea(cc));
+                           if (areaC < minA) {
+                               cc.delete();
+                               continue;
+                           }
+                           let simplifiedC = new cv.Mat();
+                           cv.approxPolyDP(cc, simplifiedC, eps, true);
+                           if (simplifiedC.rows > 1) d += ' ' + openCVContourToClosedPath(simplifiedC);
+                           simplifiedC.delete();
+                           cc.delete();
+                       }
+                   }
+
+                   if (!d) continue;
+                   if (fillType === 'outline') {
+                       svgElements += `<path d="${d}" fill="none" stroke="black" stroke-width="${strokeWidthPx.toFixed(3)}" />\n`;
+                   } else {
+                       svgElements += `<path d="${d}" fill="black" stroke="none" fill-rule="evenodd" />\n`;
+                   }
+               }
+
+               src.delete();
+               gray.delete();
+               bw.delete();
+               contours.delete();
+               hierarchy.delete();
+
+               resolve(buildSvg(svgElements, widthMM, heightMM, viewBoxWidth, viewBoxHeight));
+           } catch (err) {
+               reject(err);
+           }
+       });
+  }
+
   // --- API Calls for AI Generation ---
   // Generates an enhanced text prompt using Gemini
 	  async function generatePromptWithGemini(seedPrompt, promptType = 'scene', imageFile = null) {
@@ -2283,12 +2405,15 @@ const modes = {
                     case 'modulated-lines':
                         svgContent = generateModulatedLines(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
                         break;
-                    case 'edge-art':
-                        svgContent = await generateEdgeArt(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
-                        break;
-                    case 'vector-trace':
-                        svgContent = await generateVectorTrace(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
-                        break;
+	                    case 'edge-art':
+	                        svgContent = await generateEdgeArt(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+	                        break;
+	                    case 'binary-contours':
+	                        svgContent = await generateBinaryContours(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+	                        break;
+	                    case 'vector-trace':
+	                        svgContent = await generateVectorTrace(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
+	                        break;
                     case 'text-art':
                         svgContent = await generateTextArt(params, outputWidthMM, outputHeightMM, viewBoxWidth, viewBoxHeight);
                         break;
